@@ -80,6 +80,8 @@ Both models share the same protocol:
 - the e2e-ack rule
 
 ## Seeing what was sent vs what was received
+- **Phones in the mesh:** a live mini-phone for every node: Hiker, relays B, C, D and E, and Ranger. Each shows frames sent, received and relayed, duplicates, drops, queue length and online/offline. A phone glows while it transmits.
+- **Run summary:** a plain-language recap built only from events, with a Copy button that copies it as Markdown. It covers the result, the 6 phones and radio settings, planned vs actual route, knockouts and reroutes, arrival time of each part, sent vs received, loss causes, busiest and worst link, recovery work and efficiency. `scripts/simulate.py` prints the same summary.
 - **On the page, Network ledger section:**
   - totals: frames and bytes the hiker sent, unique chunks and bytes the ranger received, duplicates discarded, frames delivered vs lost, a breakdown of loss causes
   - a **per-link table:** frames sent, received and lost, split by cause (fade, collision, half-duplex, CRC, node down), hop ACKs sent and lost, mean SNR
@@ -102,7 +104,7 @@ Both models share the same protocol:
 - **Randomness:** all of it comes from a single seeded `random.Random`.
 
 ## Test results
-`pytest`: **65 passed, 2 skipped.** The 2 skipped tests are the live NicrronNinoo and live PRISM checks, which run automatically when credentials are in `.env`.
+`pytest`: **67 passed, 2 skipped.** The 2 skipped tests are the live NicrronNinoo and live PRISM checks, which run automatically when credentials are in `.env`.
 
 | # | Test | Result |
 |---|---|---|

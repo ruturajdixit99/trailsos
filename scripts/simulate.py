@@ -18,9 +18,16 @@ from mesh.ledger import NetworkLedger  # noqa: E402
 from mesh.lora import PRESETS  # noqa: E402
 from mesh.sim import RATE_PRESETS, MeshSim, SimConfig, demo_topology  # noqa: E402
 from mesh.status import StatusTracker  # noqa: E402
+from mesh.summary import summarize  # noqa: E402
+from server.app import _radio_info  # noqa: E402
 from server.sos import build_sos  # noqa: E402
 
 SKIP_IN_TRACE = {"ack_sent", "acked", "backoff"}
+
+
+def ascii_text(t: str) -> str:
+    """Windows consoles (cp1252) can't show these glyphs."""
+    return t.replace("✓✓", "[confirmed]").replace("→", "->").replace("·", "|")
 
 
 def table(rows: list[dict], cols: list[tuple[str, str]]) -> str:
@@ -105,10 +112,11 @@ def main() -> None:
     print("\nPER CHUNK")
     rows = []
     for c in snap["chunks"]:
-        hops = " ".join(f"{h['from'][0]}>{h['to'][0]}:{h['tries']}{'ok' if h['ok'] else 'X'}" for h in c["hops"])
+        hops = " ".join(f"{h['from'][0]}>{h['to'][0]} {h['ok']}/{h['tries']}" for h in c["hops"])
         rows.append({**c, "hops": hops, "arrived": c["arrived_t"] if c["arrived_t"] is not None else "-"})
     print(table(rows, [("label", "chunk"), ("size", "bytes"), ("source_sends", "src sends"), ("frames", "frames"),
-                       ("lost", "lost"), ("status", "status"), ("arrived", "arrived t"), ("hops", "hop tries (last 8)")]))
+                       ("lost", "lost"), ("status", "status"), ("arrived", "arrived t"),
+                       ("hops", "per hop: got through / tries")]))
 
     print("\nTOTALS")
     print(f"  Hiker transmitted   {t['source_frames']} frames, {t['source_bytes']:,} B  ({t['source_chunks']} distinct media chunks)")
@@ -119,6 +127,15 @@ def main() -> None:
     print(f"  Loss causes         {', '.join(f'{k} {v}' for k, v in t['lost_by_reason'].items() if v) or 'none'}")
     print(f"  Recovery            {t['chunks_rebuilt_by_parity']} chunks rebuilt by parity, "
           f"{len(snap['nacks'])} NACKs (last 5 shown in JSON), {tracker.reroutes} reroutes")
+    summ = summarize(sim, tracker, ledger, payload.sizes(), _radio_info(sim))
+    print("\nSUMMARY")
+    print("  " + ascii_text(summ["headline"]))
+    for b in summ["bullets"]:
+        print("  - " + ascii_text(b))
+    print("\nPHONES")
+    print(table(summ["phones"], [("name", "phone"), ("role", "role"), ("alive", "alive"), ("tx", "frames sent"),
+                                  ("rx", "frames received"), ("relayed", "relayed"), ("dup", "duplicates"),
+                                  ("dropped", "dropped"), ("acks_tx", "hop ACKs sent")]))
     s = tracker.snapshot()
     print(f"\nRESULT  {s['label'].upper()}  in {s['elapsed_s']} s (sim) | route {' > '.join(s['route'])} | "
           f"e2e-ack received: {s['e2e_acked']}")

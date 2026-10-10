@@ -21,6 +21,7 @@ from mesh.sim import RATE_PRESETS, MeshSim, SimConfig, demo_topology
 from mesh.ledger import NetworkLedger
 from mesh.lora import PRESETS as LORA_PRESETS
 from mesh.status import StatusTracker
+from mesh.summary import summarize
 from observability.prism import PrismTracer
 from server.sos import ROOT, RangerView, build_sos
 
@@ -75,6 +76,8 @@ class Run:
     knockout: Optional[str] = None
     knockout_after_rx: int = 4
     ledger: Optional[NetworkLedger] = None
+    radio: dict = field(default_factory=dict)
+    start_msg: dict = field(default_factory=dict)
     knocked: bool = False
     rx_count: int = 0
     pending: list = field(default_factory=list)
@@ -171,13 +174,16 @@ async def send_sos(req: SosRequest):
         tracker.on_event(ev)
         run.ledger.on_event(ev)
     hub.run = run
-    await hub.broadcast({"type": "start", "msg_id": f"{msg_id:08x}", "sizes": run.payload_sizes,
+    run.radio = _radio_info(sim)
+    run.start_msg = {"type": "start", "msg_id": f"{msg_id:08x}", "sizes": run.payload_sizes,
                          "codec": payload.codec,
                          "sender_ai": {r.kind: {"text": r.text(), "confidence": r.confidence, "labels": r.labels}
                                        for r in payload.ai_results},
                          "config": {"loss": req.loss, "rate_bps": cfg.rate_bps, "seed": req.seed},
                          "radio": _radio_info(sim), "links": sim.link_info(),
-                         "route": sim.planned_route(SRC, DST)})
+                         "route": sim.planned_route(SRC, DST),
+                         "speed": run.speed, "request": req.model_dump()}
+    await hub.broadcast(run.start_msg)
     run.pending.clear()
     hub.task = asyncio.create_task(drive(run))
     return {"msg_id": f"{msg_id:08x}", "sizes": run.payload_sizes, "codec": payload.codec}
@@ -231,7 +237,9 @@ async def ws_endpoint(ws: WebSocket):
     hub.clients.add(ws)
     try:
         if hub.run:
-            await ws.send_json(_tick_msg(hub.run, []))
+            # late joiner: replay the run so far (radio settings, links, every event)
+            await ws.send_json(hub.run.start_msg)
+            await ws.send_json(_tick_msg(hub.run, [e for e in hub.run.sim.events if e.msg_id in (hub.run.msg_id, None)]))
         while True:
             await ws.receive_text()  # keepalive; controls go over HTTP
     except WebSocketDisconnect:
@@ -246,8 +254,15 @@ def _tick_msg(run: Run, events: list) -> dict:
             "status": run.tracker.snapshot(),
             "ranger": run.ranger.view,
             "ledger": run.ledger.snapshot() if run.ledger else None,
+            "summary": _summary(run),
             "alive": {n.name: n.alive for n in run.sim.nodes},
             "queues": {n.name: len(n.queue) + (1 if n.busy else 0) for n in run.sim.nodes}}
+
+
+def _summary(run: Run) -> Optional[dict]:
+    if not run.ledger:
+        return None
+    return summarize(run.sim, run.tracker, run.ledger, run.payload_sizes, run.radio)
 
 
 def _network_metadata(run: Run) -> dict:
@@ -290,7 +305,7 @@ async def drive(run: Run) -> None:
                 run.finished = True
                 n = hub.tracer.finalize(run.session, _network_metadata(run))
                 await hub.broadcast({"type": "done", "status": run.tracker.snapshot(), "traces_queued": n,
-                                     "ledger": run.ledger.snapshot(),
+                                     "ledger": run.ledger.snapshot(), "summary": _summary(run),
                                      "tracing": hub.handshake})
                 return
             if run.sim.idle:  # should not happen: the source always settles

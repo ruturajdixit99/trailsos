@@ -50,7 +50,7 @@ class ChunkStats:
     source_sends: int = 0                       # first sends by the source (1 + NACK/probe resends)
     frames: int = 0                             # all transmissions on all hops
     lost: int = 0
-    hops: list = field(default_factory=list)    # [{"from","to","tries","lost","ok"}]
+    hops: list = field(default_factory=list)    # per link, first-use order: {"from","to","tries","lost","ok"}
     at: str = ""                                # last node known to hold it
     arrived_t: float | None = None
     path: list = field(default_factory=list)
@@ -59,9 +59,10 @@ class ChunkStats:
     duplicates_at_dest: int = 0
 
     def _hop(self, frm: str, to: str) -> dict:
-        if self.hops and self.hops[-1]["from"] == frm and self.hops[-1]["to"] == to and not self.hops[-1]["ok"]:
-            return self.hops[-1]
-        h = {"from": frm, "to": to, "tries": 0, "lost": 0, "ok": False}
+        for h in self.hops:
+            if h["from"] == frm and h["to"] == to:
+                return h
+        h = {"from": frm, "to": to, "tries": 0, "lost": 0, "ok": 0}  # ok = tries that got through
         self.hops.append(h)
         return h
 
@@ -80,7 +81,7 @@ class ChunkStats:
     def view(self) -> dict:
         return {"label": self.label, "part": self.part, "index": self.index, "parity": self.parity,
                 "size": self.size, "source_sends": self.source_sends, "frames": self.frames, "lost": self.lost,
-                "hops": self.hops[-8:], "status": self.status, "arrived_t": self.arrived_t,
+                "hops": self.hops, "status": self.status, "arrived_t": self.arrived_t,
                 "path": self.path, "recovered": self.recovered, "dropped": self.dropped[-2:],
                 "dup_at_dest": self.duplicates_at_dest}
 
@@ -158,7 +159,7 @@ class NetworkLedger:
             self._link(ev.peer, ev.node).delivered += 1
             self._node(ev.node)["rx"] += 1
             if c:
-                c._hop(ev.peer, ev.node)["ok"] = True
+                c._hop(ev.peer, ev.node)["ok"] += 1
                 c.at = ev.node
                 c.arrived_t = round(ev.t, 2)
                 c.path = ev.detail.get("path", [])
@@ -169,7 +170,7 @@ class NetworkLedger:
                 self._node(ev.node)["relayed"] += 1
             if c:
                 h = c._hop(ev.peer, ev.node)
-                h["ok"] = True
+                h["ok"] += 1
                 c.at = ev.node
                 if k == "received":
                     c.arrived_t = round(ev.t, 2)
@@ -181,6 +182,8 @@ class NetworkLedger:
             self._link(ev.peer, ev.node).delivered += 1
             self._node(ev.node)["rx"] += 1
             self._node(ev.node)["dup"] += 1
+            if c:
+                c._hop(ev.peer, ev.node)["ok"] += 1
             if ev.node == self.dst:
                 self.dst_dups += 1
                 if c:

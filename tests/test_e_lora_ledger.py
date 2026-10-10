@@ -117,3 +117,31 @@ def test_ledger_balances_simple(sos_payload):
         for ev in t.sim.events:
             led.on_event(ev)
         _check_ledger(t.sim, t.msg_id, led)
+
+
+# --- run summary -----------------------------------------------------------------
+def _summary_for(t, parts):
+    from mesh.summary import summarize
+    led = NetworkLedger(t.msg_id)
+    for ev in t.sim.events:
+        led.on_event(ev)
+    sizes = {"transcript": len(parts[1]), "caption": len(parts[2]), "audio": len(parts[3]), "thumbnail": len(parts[4])}
+    return summarize(t.sim, t.tracker, led, sizes, {"model": "simple", "bitrate": 1000.0, "loss": 0.2})
+
+
+def test_summary_delivered_mentions_phones_and_knockout(sos_payload):
+    t = run_trial(sos_payload.parts, seed=4, knockout="C")
+    s = _summary_for(t, sos_payload.parts)
+    assert s["verdict"] == "delivered" and s["headline"].startswith("DELIVERED")
+    text = " ".join(s["bullets"])
+    assert "6 phones" in text and "C was knocked out" in text and "Sent vs received" in text
+    assert len(s["phones"]) == 6 and {p["name"] for p in s["phones"]} == {"Hiker", "B", "C", "D", "E", "Ranger"}
+    assert next(p for p in s["phones"] if p["name"] == "C")["alive"] is False
+
+
+def test_summary_never_claims_delivery_on_failure(sos_payload):
+    t = run_trial(sos_payload.parts, seed=1, dead_from_start=("D",))
+    s = _summary_for(t, sos_payload.parts)
+    assert s["verdict"] == "failed"
+    assert s["headline"].startswith("NOT DELIVERED") and "✓" not in s["headline"]
+    assert not any("End-to-end ack" in b for b in s["bullets"])

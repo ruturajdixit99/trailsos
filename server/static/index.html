@@ -17,8 +17,10 @@
   main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; gap: 16px; padding: 16px; align-items: start; }
   @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
   section.wide { padding: 0 16px 24px; }
+  main > .phone { position: sticky; top: 12px; }
+  @media (max-width: 1100px) { main > .phone { position: static; } }
   .phone { background: #000; border-radius: 40px; padding: 12px; border: 2px solid #333; box-shadow: 0 10px 40px #0008; }
-  .screen { background: #f5f5f7; color: #111; border-radius: 30px; min-height: 600px; padding: 14px 14px 18px; overflow: hidden; position: relative; }
+  .screen { background: #f5f5f7; color: #111; border-radius: 30px; min-height: 600px; max-height: calc(100vh - 60px); padding: 14px 14px 18px; overflow-y: auto; position: relative; scrollbar-width: thin; }
   .notch { width: 110px; height: 22px; background: #000; border-radius: 0 0 14px 14px; margin: -14px auto 8px; }
   .statusbar { display: flex; justify-content: space-between; font-size: 11px; color: #555; margin-bottom: 8px; }
   .screen h2 { margin: 4px 0 10px; font-size: 18px; }
@@ -81,6 +83,25 @@
   .chip { display: inline-block; padding: 0 5px; margin: 1px 2px 1px 0; border-radius: 4px; font: 11px ui-monospace, Consolas, monospace; }
   .chip.ok { background: #12361f; color: #7ee2a0; } .chip.x { background: #3d1414; color: #ff9b95; }
   .st-arrived { color: var(--ok); } .st-dropped { color: var(--bad); } .st-rebuilt { color: var(--e); } .st-transit { color: var(--info); }
+  /* mesh phones strip */
+  .phones { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 1400px) { .phones { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .mini { background: #000; border: 2px solid #333; border-radius: 16px; padding: 5px; transition: box-shadow .2s, border-color .2s; }
+  .mini .scr { background: #f5f5f7; color: #111; border-radius: 11px; padding: 6px 7px 7px; min-height: 128px; }
+  .mini .nm { font-weight: 800; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .mini .role { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: .05em; }
+  .mini .dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; display: inline-block; }
+  .mini.down { opacity: .45; } .mini.down .dot { background: #dc2626; }
+  .mini.tx { border-color: #58a6ff; box-shadow: 0 0 12px #58a6ffaa; }
+  .mini .row { display: flex; justify-content: space-between; font-size: 11px; color: #444; font-variant-numeric: tabular-nums; }
+  .mini .row b { color: #111; }
+  .mini .q { font-size: 10px; color: #92400e; min-height: 13px; }
+  /* summary */
+  .summary .head { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+  .summary .head.delivered { color: var(--ok); } .summary .head.failed { color: var(--bad); } .summary .head.in_progress { color: var(--info); }
+  .summary ul { margin: 0; padding-left: 18px; font-size: 13px; color: #c9d1d9; }
+  .summary li { margin: 2px 0; }
+  .copybtn { background: #0d1117; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font: inherit; font-size: 11px; cursor: pointer; }
   .lossbar { display: inline-block; height: 8px; background: var(--bad); border-radius: 2px; vertical-align: middle; }
 </style>
 </head>
@@ -139,7 +160,7 @@
     </div>
     <div class="panel">
       <h3>Mesh map <span id="simT"></span></h3>
-      <svg id="map" viewBox="-0.5 -0.45 5 1.6"></svg>
+      <svg id="map" viewBox="-0.5 -0.62 5 1.68"></svg>
       <div class="legend" id="legend">
         <span><i style="background:#3fb950"></i>strong link</span><span><i style="background:#d29922"></i>marginal</span>
         <span><i style="background:#f85149"></i>weak (&lt;0 dB margin)</span><span>● data · <span style="color:#bc8cff">●</span> parity · <span style="color:#3fb950">●</span> ack/control · ✗ lost</span>
@@ -152,6 +173,15 @@
         <div><b id="sReroute">0</b>reroutes</div>
         <div><b id="sRate">–</b>effective bps</div>
       </div>
+    </div>
+    <div class="panel">
+      <h3>Phones in the mesh <span class="muted" id="phonesCount">6 phones · live per-phone traffic for this message</span></h3>
+      <div class="phones" id="phones"></div>
+    </div>
+    <div class="panel summary">
+      <h3>Run summary <span><button class="copybtn" id="copySum">Copy</button></span></h3>
+      <div class="head" id="sumHead">Press SEND SOS to start a run.</div>
+      <ul id="sumList"></ul>
     </div>
     <div class="panel"><h3>Event log <span class="muted">every frame: who → who, what, why it was lost, RSSI/SNR</span></h3><div class="log" id="log"></div></div>
   </div>
@@ -204,13 +234,14 @@
         <div class="scroll" style="max-height:360px"><svg id="timeline"></svg></div>
       </div>
     </div>
-    <h3 style="margin:14px 0 6px">Per chunk <span class="muted">hop tries: H›B:2✓ means 2 transmissions Hiker→B, then received</span></h3>
+    <h3 style="margin:14px 0 6px">Per chunk <span class="muted">per hop: H›B 3/4 means 4 transmissions Hiker→B, 3 got through (extra ones are resends / duplicates)</span></h3>
     <div class="scroll"><table class="tbl" id="chunkTbl"></table></div>
   </div>
 </section>
 
 <script>
 const $ = id => document.getElementById(id);
+let lastSummary = null;
 let cfg = null, nodes = {}, msgId = null, rateBps = 1000, speed = 10, shownMedia = {}, runEvents = [], linkInfo = [];
 const CAUSE_COLORS = {'loss': '#f85149', 'weak signal': '#f0883e', 'collision': '#d29922', 'half-duplex': '#bc8cff',
   'crc_fail': '#ff7b72', 'receiver down': '#6e7681', 'sender down': '#484f58', 'out of range': '#30363d'};
@@ -230,6 +261,15 @@ function syncRadioUi() {
   const lora = $('radio').value === 'lora';
   document.querySelectorAll('.lora-only').forEach(e => e.classList.toggle('hide', !lora));
   document.querySelectorAll('.simple-only').forEach(e => e.classList.toggle('hide', lora));
+}
+
+function syncControls(q) {
+  $('radio').value = q.radio; $('preset').value = q.preset; $('rate').value = q.rate; $('seed').value = q.seed;
+  $('loss').value = Math.round(q.loss * 100); $('lossVal').textContent = $('loss').value + '%';
+  $('km').value = q.km; $('kmVal').textContent = (+q.km).toFixed(1) + ' km';
+  $('terrain').value = q.terrain_db; $('terrVal').textContent = q.terrain_db + ' dB';
+  $('ko').value = q.knockout || '';
+  syncRadioUi();
 }
 
 function requestBody() {
@@ -265,8 +305,8 @@ async function init() {
   $('preset').innerHTML = Object.entries(cfg.lora_presets).map(([k, p]) =>
     `<option value="${k}" ${k === 'long_fast' ? 'selected' : ''}>${p.name} · SF${p.sf}/${p.bw_khz} kHz · ${p.bitrate.toLocaleString()} bps</option>`).join('');
   drawMap();
-  previewLinks();
-  connect();
+  connect();  // an active run replays its own radio settings; otherwise preview the controls
+  setTimeout(() => { if (!msgId) previewLinks(); }, 400);
 }
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -284,8 +324,10 @@ function drawMap() {
     grp.appendChild(el('circle', {cx: n.x, cy: n.y, r: 0.15, fill: '#0d1117', stroke: col, 'stroke-width': 0.04}));
     const t = el('text', {x: n.x, y: n.y + 0.05, 'text-anchor': 'middle', 'font-size': 0.13, fill: '#e6edf3'});
     t.textContent = n.name === 'Hiker' ? '🥾' : n.name === 'Ranger' ? '🏕' : n.name; grp.appendChild(t);
-    const lbl = el('text', {x: n.x, y: n.y + 0.31, 'text-anchor': 'middle', 'font-size': 0.1, fill: '#8b98a5'});
-    lbl.textContent = n.name; grp.appendChild(lbl);
+    if (n.name === 'Hiker' || n.name === 'Ranger') {
+      const lbl = el('text', {x: n.x, y: n.y + 0.31, 'text-anchor': 'middle', 'font-size': 0.1, fill: '#8b98a5'});
+      lbl.textContent = n.name; grp.appendChild(lbl);
+    }
     grp.appendChild(el('text', {id: 'q-' + n.name, x: n.x + 0.18, y: n.y - 0.15, 'font-size': 0.09, fill: '#d29922'}));
     $('map').appendChild(grp);
   });
@@ -296,20 +338,59 @@ function linkColor(l) {
   return l.margin_db >= 6 ? '#3fb950' : l.margin_db >= 0 ? '#d29922' : '#f85149';
 }
 
+// Links that would pass through another node are drawn as arcs so they don't overlap.
+let curves = {};
+function linkKey(a, b) { return [a, b].sort().join('-'); }
+function control(a, b, bend) {
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
+  return {x: mx - dy / L * bend, y: my + dx / L * bend};
+}
+function blocked(a, b) {
+  return Object.values(nodes).some(n => {
+    if (n === a || n === b) return false;
+    const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+    const t = ((n.x - a.x) * dx + (n.y - a.y) * dy) / L2;
+    if (t <= 0.05 || t >= 0.95) return false;
+    return Math.hypot(a.x + t * dx - n.x, a.y + t * dy - n.y) < 0.22;
+  });
+}
+function pointOn(key, a, b, k) {
+  const c = curves[key];
+  if (!c) return {x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k};
+  const u = 1 - k;
+  return {x: u * u * a.x + 2 * u * k * c.x + k * k * b.x, y: u * u * a.y + 2 * u * k * c.y + k * k * b.y};
+}
+
 function drawLinks(links) {
   linkInfo = links || [];
+  curves = {};
   const g = $('links'), gl = $('linklabels'); g.innerHTML = ''; gl.innerHTML = '';
+  let nCurved = 0;
   linkInfo.forEach(l => {
     const a = nodes[l.a], b = nodes[l.b]; if (!a || !b) return;
-    const line = el('line', {id: `l-${[l.a, l.b].sort().join('-')}`, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+    const key = linkKey(l.a, l.b);
+    let d = `M${a.x} ${a.y} L${b.x} ${b.y}`, lx = (a.x + b.x) / 2, ly = (a.y + b.y) / 2 - 0.04;
+    if (blocked(a, b)) {  // arc above (or below, alternating) the nodes it would cross
+      const [p, q] = a.x <= b.x ? [a, b] : [b, a];
+      const bend = (nCurved++ % 2 ? 1 : -1) * (0.42 + 0.1 * Math.floor((nCurved - 1) / 2));
+      const c = control(p, q, bend);
+      curves[key] = control(a, b, a === p ? bend : -bend);
+      d = `M${a.x} ${a.y} Q${curves[key].x} ${curves[key].y} ${b.x} ${b.y}`;
+      lx = null;  // long detour links: numbers on hover only, keeps the map readable
+    } else {
+      const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
+      lx = (a.x + b.x) / 2 + (dy / L) * 0.07; ly = (a.y + b.y) / 2 - (dx / L) * 0.07 + 0.02;
+    }
+    const line = el('path', {id: `l-${key}`, d, fill: 'none',
       stroke: linkColor(l), 'stroke-width': 0.025, 'stroke-opacity': 0.55, 'data-base': linkColor(l)});
     const tip = el('title', {});
     tip.textContent = l.margin_db !== undefined
       ? `${l.a}–${l.b}: ${l.km} km, RSSI ${l.rssi_dbm} dBm, SNR ${l.snr_db} dB (margin ${l.margin_db} dB), frame loss ${(l.per * 100).toFixed(1)}%, ETX ${l.etx}`
       : `${l.a}–${l.b}: ${(l.per * 100).toFixed(0)}% frame loss`;
     line.appendChild(tip); g.appendChild(line);
-    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    const txt = el('text', {x: mx, y: my - 0.04, 'text-anchor': 'middle', 'font-size': 0.075, fill: '#8b98a5'});
+    const txt = el('text', {x: lx, y: ly, 'text-anchor': 'middle', 'font-size': 0.07, fill: '#8b98a5',
+      'paint-order': 'stroke', stroke: '#171e26', 'stroke-width': 0.025});
+    if (lx === null) return;
     txt.textContent = l.margin_db !== undefined ? `${l.snr_db} dB · ${(l.per * 100).toFixed(0)}%` : `${(l.per * 100).toFixed(0)}%`;
     gl.appendChild(txt);
   });
@@ -326,14 +407,16 @@ function animatePacket(ev) {
   const t0 = performance.now();
   (function step(now) {
     const k = Math.min(1, (now - t0) / dur);
-    c.setAttribute('cx', a.x + (b.x - a.x) * k); c.setAttribute('cy', a.y + (b.y - a.y) * k);
+    const pt = pointOn(linkKey(ev.node, ev.peer), a, b, k);
+    c.setAttribute('cx', pt.x); c.setAttribute('cy', pt.y);
     if (k < 1) requestAnimationFrame(step); else c.remove();
   })(t0);
 }
 
 function flashLost(ev) {
   const a = nodes[ev.node], b = nodes[ev.peer]; if (!a || !b) return;
-  const t = el('text', {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 + 0.12, 'font-size': 0.09, fill: CAUSE_COLORS[ev.detail.reason] || '#f85149', 'text-anchor': 'middle'});
+  const mid = pointOn(linkKey(ev.node, ev.peer), a, b, 0.5);
+  const t = el('text', {x: mid.x, y: mid.y + 0.12, 'font-size': 0.09, fill: CAUSE_COLORS[ev.detail.reason] || '#f85149', 'text-anchor': 'middle'});
   t.textContent = '✗ ' + (CAUSE_LABELS[ev.detail.reason] || ev.detail.reason);
   $('pkts').appendChild(t); setTimeout(() => t.remove(), 900);
 }
@@ -401,12 +484,38 @@ function render(m) {
     $('rebuildCard').style.display = ''; $('rRebuild').src = `/api/media/${s.msg_id}/rebuild.png`; }
   if (m.alive) for (const [n, up] of Object.entries(m.alive)) { const g = $('n-' + n); if (g) g.style.opacity = up ? 1 : 0.25; }
   if (m.queues) for (const [n, q] of Object.entries(m.queues)) { const t = $('q-' + n); if (t) t.textContent = q ? `▤${q}` : ''; }
-  document.querySelectorAll('#links line').forEach(l => { l.setAttribute('stroke-width', 0.025); l.setAttribute('stroke-opacity', 0.55); });
+  document.querySelectorAll('#links path').forEach(l => { l.setAttribute('stroke-width', 0.025); l.setAttribute('stroke-opacity', 0.55); });
   if (s.route_is_observed) for (let i = 0; i + 1 < s.route.length; i++) {
     const l = $('l-' + [s.route[i], s.route[i + 1]].sort().join('-'));
     if (l) { l.setAttribute('stroke-width', 0.05); l.setAttribute('stroke-opacity', 0.95); }
   }
   if (m.ledger) renderLedger(m.ledger);
+  if (m.summary) renderSummary(m.summary);
+}
+
+function renderSummary(S) {
+  $('sumHead').className = 'head ' + S.verdict;
+  $('sumHead').textContent = S.headline;
+  $('sumList').innerHTML = S.bullets.map(b => `<li>${esc(b)}</li>`).join('');
+  lastSummary = S;
+  const ph = S.phones || [];
+  $('phonesCount').textContent = `${ph.length} phones · live per-phone traffic for this message`;
+  $('phones').innerHTML = ph.map(p => `
+    <div class="mini ${p.alive ? '' : 'down'}" id="mini-${p.name}"><div class="scr">
+      <div class="nm"><span>${p.name === 'Hiker' ? '🥾 ' : p.name === 'Ranger' ? '🏕 ' : '📱 '}${p.name}</span><span class="dot" title="${p.alive ? 'online' : 'knocked out'}"></span></div>
+      <div class="role">${p.role}${p.alive ? '' : ' · OFFLINE'}</div>
+      <div class="row"><span>sent</span><b>${p.tx}</b></div>
+      <div class="row"><span>received</span><b>${p.rx}</b></div>
+      <div class="row"><span>relayed</span><b>${p.relayed}</b></div>
+      <div class="row"><span>dups</span><b>${p.dup}</b></div>
+      <div class="row"><span>dropped</span><b>${p.dropped}</b></div>
+      <div class="q">${p.queue ? `▤ ${p.queue} queued` : ''}</div>
+    </div></div>`).join('');
+}
+
+function pulsePhone(name) {
+  const m = $('mini-' + name); if (!m) return;
+  m.classList.add('tx'); setTimeout(() => m.classList.remove('tx'), 350);
 }
 
 // ------------------------------------------------------------------ ledger
@@ -438,7 +547,7 @@ function renderLedger(L) {
   $('chunkTbl').innerHTML = `<tr><th>chunk</th><th>bytes</th><th>source sends</th><th>frames</th><th>lost</th><th>status</th><th>arrived (sim s)</th><th>path taken</th><th>hop tries</th></tr>` +
     L.chunks.map(c => {
       const st = c.status.startsWith('arrived') ? 'st-arrived' : c.status === 'dropped' ? 'st-dropped' : c.status.startsWith('rebuilt') ? 'st-rebuilt' : 'st-transit';
-      const hops = c.hops.map(h => `<span class="chip ${h.ok ? 'ok' : 'x'}">${h.from[0]}›${h.to[0]}:${h.tries}${h.ok ? '✓' : '✗'}</span>`).join('');
+      const hops = c.hops.map(h => `<span class="chip ${h.ok ? 'ok' : 'x'}" title="${h.from}→${h.to}: ${h.ok} of ${h.tries} tries got through">${h.from[0]}›${h.to[0]} ${h.ok}/${h.tries}</span>`).join('');
       return `<tr><td>${c.label}</td><td class="num">${c.size}</td><td class="num">${c.source_sends}</td><td class="num">${c.frames}</td><td class="num">${c.lost}</td>
         <td class="${st}">${esc(c.status)}</td><td class="num">${c.arrived_t ?? '–'}</td><td>${c.path.join('→')}</td><td>${hops}</td></tr>`;
     }).join('');
@@ -481,8 +590,9 @@ function connect() {
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.type === 'start') {
-      msgId = m.msg_id; rateBps = m.config.rate_bps; shownMedia = {}; runEvents = [];
+      msgId = m.msg_id; rateBps = m.config.rate_bps; shownMedia = {}; runEvents = []; speed = m.speed || speed;
       $('log').innerHTML = '';
+      if (m.request) syncControls(m.request);
       if (m.radio) showRadio(m.radio, m.route);
       if (m.links) drawLinks(m.links);
       $('hikerAi').innerHTML = '<h3>On-device AI</h3>' + Object.entries(m.sender_ai).map(([k, v]) =>
@@ -496,7 +606,7 @@ function connect() {
     } else if (m.type === 'tick') {
       (m.events || []).forEach(ev => {
         runEvents.push(ev);
-        if (['sent', 'retried', 'ack_sent'].includes(ev.kind)) animatePacket(ev);
+        if (['sent', 'retried', 'ack_sent'].includes(ev.kind)) { animatePacket(ev); pulsePhone(ev.node); }
         if (ev.kind === 'lost') flashLost(ev);
         logLine(ev);
       });
@@ -504,6 +614,7 @@ function connect() {
     } else if (m.type === 'done') {
       $('sendBtn').disabled = false;
       if (m.ledger) renderLedger(m.ledger);
+      if (m.summary) renderSummary(m.summary);
       $('meta').textContent = `AI: ${cfg.provider} · voice: ${cfg.codec} · PRISM: ${m.tracing}` + (m.traces_queued ? ` · ${m.traces_queued} traces sent` : '');
     }
   };
@@ -514,6 +625,10 @@ $('sendBtn').onclick = async () => {
   $('sendBtn').disabled = true;
   const r = await fetch('/api/sos', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(requestBody())});
   if (!r.ok) { alert(await r.text()); $('sendBtn').disabled = false; }
+};
+$('copySum').onclick = () => {
+  if (!lastSummary) return;
+  navigator.clipboard.writeText(lastSummary.markdown).then(() => { $('copySum').textContent = 'Copied'; setTimeout(() => $('copySum').textContent = 'Copy', 1200); });
 };
 $('koNow').onclick = () => { const n = $('ko').value || 'C'; fetch(`/api/node/${n}/down`, {method: 'POST'}); };
 $('restore').onclick = () => ['B', 'C', 'D', 'E'].forEach(n => fetch(`/api/node/${n}/up`, {method: 'POST'}));
