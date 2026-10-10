@@ -130,13 +130,12 @@ app.mount("/samples", StaticFiles(directory=ROOT / "samples"), name="samples")
 
 @app.get("/")
 async def index():
-    """Home: the Transfer Lab (compare speed and loss of text / audio / image)."""
-    return FileResponse(STATIC / "lab.html")
+    """Home: the live phone-to-phone mesh demo."""
+    return FileResponse(STATIC / "index.html")
 
 
 @app.get("/demo")
 async def demo():
-    """Live phone-to-phone demo of a single SOS."""
     return FileResponse(STATIC / "index.html")
 
 

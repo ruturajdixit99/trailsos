@@ -276,7 +276,7 @@ def test_lab_api_job_roundtrip():
 
     from server import app as appmod
     with TestClient(appmod.app) as client:
-        assert "Transfer Lab" in client.get("/").text
+        assert "Transfer Lab" in client.get("/lab").text and "Trail SOS" in client.get("/").text
         cat = client.get("/api/lab/variants").json()
         assert {v["key"] for v in cat["variants"]} >= {"text", "audio", "image"}
         assert client.post("/api/lab/run", json={"variants": ["nope"]}).status_code == 400

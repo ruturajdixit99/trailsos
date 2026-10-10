@@ -4,8 +4,8 @@
 
 **Track:** CHRP, Off-Grid Everything (Off-Grid Mesh)
 
-## Transfer Lab (home page): compare speed and data loss
-Open **http://127.0.0.1:8000/**. Pick what to send and set the network, then press **Run**.
+## Transfer Lab: compare speed and data loss
+Open **http://127.0.0.1:8000/lab** (linked from the demo's header). Pick what to send and set the network, then press **Run**.
 
 **What you can send:**
 - Text (69 B)
@@ -46,7 +46,7 @@ Open **http://127.0.0.1:8000/**. Pick what to send and set the network, then pre
 - The original photo takes about 32 minutes and arrives intact in only 75% of trials.
 - Uncompressed audio never arrives.
 
-The live phone-to-phone demo of a single SOS is at **/demo**.
+The live phone-to-phone demo of a single SOS is the home page, **http://127.0.0.1:8000/**.
 
 ## What it does and why
 When someone is hurt in the backcountry, a text-only SOS leaves out a lot ("which ankle? can you walk? where are you?"). A voice note and a photo carry that context, but LoRa gives you about 1,000 bps and 230-byte packets. Trail SOS:
