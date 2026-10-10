@@ -27,9 +27,15 @@ When someone is hurt in the backcountry, a text-only SOS leaves out a lot ("whic
 - **Corrupted frames are rejected.** CRC32 covers the header and the payload. Half of the simulated losses are delivered as bit-flipped frames, which the receiver rejects.
 
 ## Tools used
-- **NicrronNinoo** (AI provider, sponsor): `ai/provider.py` defines the `caption_image / transcribe / rebuild_image` interface.
-  - The NicrronNinoo adapter is wired to `NICRRONNINOO_*` env vars. Its request format is a placeholder until the playground details (base URL, auth, model, sample request) are filled in.
-  - Until then, or on any API error, the app falls back to the **mock provider** and logs that it did.
+- **NicrronNinoo** (AI provider, sponsor). It runs live on Nicrron's OpenAI-compatible gateway, `https://api.nicrron.ai/v1`, with the key sent as `Authorization: Bearer`. Code: [ai/provider.py](ai/provider.py).
+  - **Hiker phone, before sending** ([server/sos.py](server/sos.py) `build_sos`, both calls in parallel):
+    - `transcribe`: `openai/whisper-1` via `/audio/transcriptions`. Confidence comes from Whisper's own segment log-probabilities and no-speech probability.
+    - `caption_image`: `anthropic/claude-haiku-4-5` via `/chat/completions`, with a rescue-focused prompt. The model reports its own confidence, capped at 0.95.
+  - **Ranger phone, when the caption arrives** (`RangerView.rebuild_from_caption`, off the simulation loop):
+    - `rebuild_image`: `google/nano-banana` via `/images/generations`, an async job that is polled and then downloaded. The image is downscaled and stamped "AI RECONSTRUCTION".
+    - It costs about $0.04 per SOS. Set `NICRRONNINOO_REBUILD=0` to use the free local sketch instead.
+  - **Fallback:** without a key the app uses the mock provider. On any API error, that single call falls back to the mock, and the log and the trace model name say so.
+  - **Tests:** `pytest` always uses the mock, so it never spends money. One live test makes a real caption and transcript call when the key is in `.env`.
 - **Block Convey PRISM** (observability, sponsor): `observability/prism.py`.
   - Sends one trace per AI call with `POST /api/traces`, authenticated with the `X-PRISMtrace-Key` header.
   - `session_id` = SOS message ID and `agent_id` = `trail-sos`.
@@ -104,7 +110,7 @@ Both models share the same protocol:
 - **Randomness:** all of it comes from a single seeded `random.Random`.
 
 ## Test results
-`pytest`: **67 passed, 2 skipped.** The 2 skipped tests are the live NicrronNinoo and live PRISM checks, which run automatically when credentials are in `.env`.
+`pytest`: **70 passed, 1 skipped.** The skipped test is the live PRISM handshake, which needs PRISM keys in `.env`. The live NicrronNinoo test runs and passes.
 
 | # | Test | Result |
 |---|---|---|
@@ -147,7 +153,7 @@ Both models share the same protocol:
 - **What LoRa mode still leaves out:** ACKs are sent immediately with no listen-before-talk; there is no duty-cycle limit (US915); terrain is a single path-loss exponent plus a dB slider, not a real elevation map.
 - **Routing knowledge:** routing uses global link-budget knowledge plus each node's own failure history.
 - **The AI runs in the cloud in this demo.** A hiker with no signal can't reach a cloud API, so a real deployment would run captioning and transcription on the device. The demo uses the provider API (or the mock) in its place.
-- **NicrronNinoo adapter not finished:** the API key is in `.env` (gitignored), but the base URL, auth header and request format are still missing. The mock provider is used until they are added.
+- **NicrronNinoo is live,** and its output is honestly imperfect. On the drawn sample photo the vision model reports "no visible injury". Whisper repeats the last sentence of the clipped clip, so its confidence is about 0.42 and the transcript is labeled **unverified**. The labels exist for exactly this.
 - **Codec2 is used directly; no fallback was needed.** `pycodec2` installed fine. The Opus fallback (ffmpeg from `imageio-ffmpeg`) is implemented but was not exercised on this machine.
 - **The sample data is synthetic.** The voice is Windows text-to-speech and the photo was drawn with Pillow (`scripts/make_samples.py`).
 - **Delivery times are simulated seconds.** The UI replays them at an adjustable speed.

@@ -13,7 +13,7 @@ from media.text import CAPTION_BUDGET, unpack
 from mesh.packet import ContentType
 from observability.prism import AGENT_ID, PrismTracer
 from server.sos import RangerView, build_sos
-from tests.conftest import ROOT
+from tests.conftest import LIVE, ROOT
 from tests.helpers import run_trial
 
 load_dotenv(ROOT / ".env")
@@ -43,15 +43,89 @@ def test_nicrronninoo_without_config_falls_back(monkeypatch):
     assert isinstance(get_provider(), MockProvider)
 
 
+class FakeNicrron:
+    """Mock of Nicrron's OpenAI-compatible gateway (chat vision, Whisper, async image jobs)."""
+
+    def __init__(self):
+        self.requests = []
+        self.polls = 0
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        assert request.headers["Authorization"] == "Bearer sk-test"
+        path = request.url.path
+        if path == "/v1/chat/completions":
+            body = json.loads(request.content)
+            assert body["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+            return httpx.Response(200, json={"choices": [{"message": {"content":
+                '```json\n{"caption": "Hiker sitting on trail holding left ankle, orange jacket", '
+                '"confidence": 0.81}\n```'}}]})
+        if path == "/v1/audio/transcriptions":
+            assert b"openai/whisper-1" in request.content
+            return httpx.Response(200, json={"text": "Help, I hurt my ankle.", "segments": [
+                {"start": 0, "end": 3, "avg_logprob": -0.1, "no_speech_prob": 0.01},
+                {"start": 3, "end": 5, "avg_logprob": -0.9, "no_speech_prob": 0.05}]})
+        if path == "/v1/images/generations":
+            return httpx.Response(202, json={"id": "img-1", "status": "queued"})
+        if path == "/v1/images/generations/img-1":
+            self.polls += 1
+            return httpx.Response(200, json={"id": "img-1", "status": "succeeded" if self.polls > 1 else "running"})
+        if path == "/v1/images/generations/img-1/content":
+            from PIL import Image
+            buf = __import__("io").BytesIO()
+            Image.new("RGB", (1024, 1024), (200, 200, 200)).save(buf, "PNG")
+            return httpx.Response(200, content=buf.getvalue(), headers={"content-type": "image/png"})
+        return httpx.Response(404, json={"error": path})
+
+
+def test_nicrronninoo_adapter_against_mock_gateway(monkeypatch):
+    import math
+    import time as _time
+
+    from PIL import Image
+    monkeypatch.setenv("NICRRONNINOO_API_KEY", "sk-test")
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    fake = FakeNicrron()
+    p = NicrronNinooProvider(transport=httpx.MockTransport(fake.handler))
+    cap = p.run_caption(Image.open(ROOT / "samples" / "trail_photo.jpg"))
+    assert cap.text().startswith("Hiker sitting") and cap.confidence == pytest.approx(0.81)
+    assert cap.model == "anthropic/claude-haiku-4-5" and cap.labels == []
+    tr = p.run_transcribe(b"RIFF....")
+    want = math.exp((3 * -0.1 + 2 * -0.9) / 5) * (1 - (3 * 0.01 + 2 * 0.05) / 5)
+    assert tr.confidence == pytest.approx(want) and tr.model == "openai/whisper-1"
+    assert tr.labels == ["unverified"]          # 0.64 < 0.7: Whisper itself was unsure -> labeled
+    rb = p.run_rebuild(cap.text(), cap.confidence)
+    assert rb.output[:8] == b"\x89PNG\r\n\x1a\n" and RECONSTRUCTION_LABEL in rb.labels
+    from PIL import Image as _I
+    assert max(_I.open(__import__("io").BytesIO(rb.output)).size) <= 240   # downscaled + stamped
+    assert rb.model == "google/nano-banana"
+
+
+def test_nicrronninoo_failure_falls_back_to_mock(monkeypatch):
+    from ai.provider import FallbackProvider
+    monkeypatch.setenv("NICRRONNINOO_API_KEY", "sk-test")
+    broken = NicrronNinooProvider(transport=httpx.MockTransport(lambda r: httpx.Response(500, text="boom")))
+    fb = FallbackProvider(broken, MockProvider())
+    r = fb.run_transcribe(b"x")
+    assert r.text() == MockProvider().transcribe(b"")[0]
+    assert "fallback" in r.model and fb.fallbacks and fb.fallbacks[0][0] == "transcribe"
+
+
 @pytest.mark.live
-@pytest.mark.skipif(not all(os.getenv(k) for k in ("NICRRONNINOO_BASE_URL", "NICRRONNINOO_API_KEY", "NICRRONNINOO_MODEL")),
-                    reason="NicrronNinoo base URL / key / model not all set")
-def test_nicrronninoo_live_budget():
-    p = get_provider()
+@pytest.mark.skipif(not LIVE.get("NICRRONNINOO_API_KEY"), reason="no NicrronNinoo key in .env")
+def test_nicrronninoo_live_budget(monkeypatch):
+    """One real caption + transcript call (no image generation, to keep it cheap)."""
+    for k, v in LIVE.items():
+        if k.startswith("NICRRONNINOO_"):
+            monkeypatch.setenv(k, v)
+    p = NicrronNinooProvider()
     payload = build_sos(p)
+    cap_text, cap_conf = unpack(payload.parts[ContentType.CAPTION])
+    tr_text, tr_conf = unpack(payload.parts[ContentType.TRANSCRIPT])
+    print(f"\nLIVE caption ({cap_conf:.2f}): {cap_text}\nLIVE transcript ({tr_conf:.2f}): {tr_text}")
     assert len(payload.parts[ContentType.CAPTION]) <= CAPTION_BUDGET
-    text, conf = unpack(payload.parts[ContentType.CAPTION])
-    assert text and 0 <= conf <= 1
+    assert cap_text and "ankle" in tr_text.lower()
+    assert all("mock" not in r.model for r in payload.ai_results)
 
 
 # 17 --------------------------------------------------------------------------
@@ -121,10 +195,10 @@ def test_prism_handshake_mock():
 
 
 @pytest.mark.live
-@pytest.mark.skipif(not (os.getenv("PRISMTRACE_API_KEY") and os.getenv("PRISMTRACE_PROJECT_ID")),
-                    reason="no PRISM credentials")
+@pytest.mark.skipif(not (LIVE.get("PRISMTRACE_API_KEY") and LIVE.get("PRISMTRACE_PROJECT_ID")),
+                    reason="no PRISM credentials in .env")
 def test_prism_handshake_live():
-    ok, msg = PrismTracer().handshake()
+    ok, msg = PrismTracer(LIVE.get("PRISMTRACE_HOST"), LIVE["PRISMTRACE_PROJECT_ID"], LIVE["PRISMTRACE_API_KEY"]).handshake()
     print(f"\nPRISM live handshake: {msg}")
     assert ok, msg
 

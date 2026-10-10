@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -35,8 +36,10 @@ class SosPayload:
 def build_sos(provider: AIProvider, voice_path: Path = SAMPLE_VOICE, photo_path: Path = SAMPLE_PHOTO) -> SosPayload:
     pcm = voice.load_wav(voice_path, seconds=5.0)
     photo = Image.open(photo_path)
-    tr = provider.run_transcribe(voice.wav_bytes(pcm))
-    cap = provider.run_caption(photo)
+    with ThreadPoolExecutor(2) as pool:  # both AI calls at once: the hiker waits for the slower one only
+        f_tr = pool.submit(provider.run_transcribe, voice.wav_bytes(pcm))
+        f_cap = pool.submit(provider.run_caption, photo)
+        tr, cap = f_tr.result(), f_cap.result()
     bits, codec = voice.encode(pcm)
     thumb, fmt = mimage.make_thumbnail(photo)
     parts = {
@@ -56,17 +59,15 @@ class RangerView:
     view: dict = field(default_factory=dict)
     rebuild: AIResult | None = None
 
-    def update(self, part: str, data: bytes) -> AIResult | None:
-        """Decode a freshly reassembled part. Returns an AIResult if an AI call was made."""
+    def update(self, part: str, data: bytes, rebuild: bool = True) -> AIResult | None:
+        """Decode a freshly reassembled part. Returns an AIResult if an AI call was made.
+        rebuild=False leaves the (slow) caption->sketch call to the caller (see rebuild_from_caption)."""
         new_ai = None
         if part in ("transcript", "caption"):
             text, conf = mtext.unpack(data)
             self.view[part] = {"text": text, "confidence": conf, "labels": apply_labels(part, conf)}
-            if part == "caption" and self.rebuild is None:
-                self.rebuild = new_ai = self.provider.run_rebuild(text, conf)
-                self.media["rebuild.png"] = (self.rebuild.output, "image/png")
-                self.view["rebuild"] = {"url": "rebuild.png", "labels": self.rebuild.labels,
-                                        "confidence": conf}
+            if part == "caption" and rebuild:
+                new_ai = self.rebuild_from_caption()
         elif part == "audio":
             codec = CODEC_NAMES.get(data[0], "unknown")
             pcm = voice.decode(data[1:], codec)
@@ -77,6 +78,18 @@ class RangerView:
             self.media["thumbnail.png"] = (mimage.thumbnail_png(data), "image/png")
             self.view["thumbnail"] = {"url": "thumbnail.png", "bytes": len(data), "size": "48x48 grayscale"}
         return new_ai
+
+    def rebuild_from_caption(self) -> AIResult | None:
+        """Generate the labeled AI sketch from the received caption (once)."""
+        if self.rebuild is not None or "caption" not in self.view:
+            return None
+        cap = self.view["caption"]
+        self.view["rebuild"] = {"pending": True, "labels": apply_labels("rebuild", cap["confidence"])}
+        self.rebuild = self.provider.run_rebuild(cap["text"], cap["confidence"])
+        self.media["rebuild.png"] = (self.rebuild.output, "image/png")
+        self.view["rebuild"] = {"url": "rebuild.png", "labels": self.rebuild.labels, "confidence": cap["confidence"],
+                                "model": self.rebuild.model}
+        return self.rebuild
 
 
 def data_url(png: bytes) -> str:

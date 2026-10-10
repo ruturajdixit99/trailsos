@@ -78,6 +78,7 @@ class Run:
     ledger: Optional[NetworkLedger] = None
     radio: dict = field(default_factory=dict)
     start_msg: dict = field(default_factory=dict)
+    rebuild_task: Optional[asyncio.Task] = None
     knocked: bool = False
     rx_count: int = 0
     pending: list = field(default_factory=list)
@@ -275,6 +276,15 @@ def _network_metadata(run: Run) -> dict:
             "seed": run.sim.cfg.seed, "msg_id": s["msg_id"]}
 
 
+async def _rebuild(run: Run) -> None:
+    try:
+        ai = await asyncio.to_thread(run.ranger.rebuild_from_caption)
+        if ai is not None:
+            hub.tracer.record_ai_call(run.session, ai)
+    except Exception as e:  # noqa: BLE001 - a failed sketch must never break the SOS
+        log.warning("AI rebuild failed: %s", e)
+
+
 async def drive(run: Run) -> None:
     """Advance sim time at `speed`x wall clock, stream events + honest status."""
     try:
@@ -289,9 +299,9 @@ async def drive(run: Run) -> None:
                     run.rx_count += 1
                 if ev.msg_id == run.msg_id and ev.kind == "reassembled":
                     data = run.sim.rx_parts[run.msg_id][ev.part]
-                    ai = await asyncio.to_thread(run.ranger.update, ev.part, data)
-                    if ai is not None:
-                        hub.tracer.record_ai_call(run.session, ai)
+                    run.ranger.update(ev.part, data, rebuild=False)
+                    if ev.part == "caption":  # slow AI sketch: off the sim loop so the mesh keeps moving
+                        run.rebuild_task = asyncio.create_task(_rebuild(run))
             if run.knockout and not run.knocked and run.rx_count >= run.knockout_after_rx:
                 run.knocked = True
                 run.sim.set_alive(run.knockout, False)
@@ -303,6 +313,9 @@ async def drive(run: Run) -> None:
             await hub.broadcast(_tick_msg(run, events))
             if run.tracker.state in ("delivered", "failed"):
                 run.finished = True
+                if run.rebuild_task:  # let the sketch land so its trace carries the final network state
+                    await asyncio.wait([run.rebuild_task], timeout=90)
+                    await hub.broadcast(_tick_msg(run, []))
                 n = hub.tracer.finalize(run.session, _network_metadata(run))
                 await hub.broadcast({"type": "done", "status": run.tracker.snapshot(), "traces_queued": n,
                                      "ledger": run.ledger.snapshot(), "summary": _summary(run),

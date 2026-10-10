@@ -208,7 +208,7 @@
       <div class="bar" id="thBar"><div style="width:0"></div></div><div id="rThumb" class="muted" style="margin-top:6px">not arrived</div></div>
     <div class="card" id="rebuildCard" style="display:none"><h3>Sketch <span class="pill ai">AI reconstruction</span></h3>
       <img id="rRebuild" class="thumb" alt="AI reconstruction">
-      <div class="muted">AI reconstruction, not the real photo. Generated on the ranger's phone from the caption.</div></div>
+      <div class="muted" id="rebuildNote">AI reconstruction, not the real photo.</div></div>
   </div></div>
 </main>
 
@@ -480,8 +480,12 @@ function render(m) {
   if (r.thumbnail && !shownMedia.thumb) { shownMedia.thumb = 1;
     $('rThumb').className = ''; $('rThumb').innerHTML = `<img class="thumb" src="/api/media/${s.msg_id}/thumbnail.png">
       <div class="muted">Real photo data: ${r.thumbnail.size}, ${r.thumbnail.bytes} B</div>`; }
-  if (r.rebuild && !shownMedia.rebuild) { shownMedia.rebuild = 1;
-    $('rebuildCard').style.display = ''; $('rRebuild').src = `/api/media/${s.msg_id}/rebuild.png`; }
+  if (r.rebuild) {
+    $('rebuildCard').style.display = '';
+    $('rebuildNote').textContent = r.rebuild.pending ? 'Generating sketch from the caption…'
+      : `AI reconstruction, not the real photo. Generated on the ranger's phone from the caption (${r.rebuild.model || 'AI'}).`;
+    if (!r.rebuild.pending && !shownMedia.rebuild) { shownMedia.rebuild = 1; $('rRebuild').src = `/api/media/${s.msg_id}/rebuild.png`; }
+  }
   if (m.alive) for (const [n, up] of Object.entries(m.alive)) { const g = $('n-' + n); if (g) g.style.opacity = up ? 1 : 0.25; }
   if (m.queues) for (const [n, q] of Object.entries(m.queues)) { const t = $('q-' + n); if (t) t.textContent = q ? `▤${q}` : ''; }
   document.querySelectorAll('#links path').forEach(l => { l.setAttribute('stroke-width', 0.025); l.setAttribute('stroke-opacity', 0.55); });
@@ -601,7 +605,7 @@ function connect() {
       for (const id of ['rTranscript', 'rCaption', 'rAudio', 'rThumb']) { $(id).className = 'muted'; $(id).textContent = 'not arrived'; }
       for (const id of ['tPill', 'cPill', 'aCount', 'thCount']) $(id).innerHTML = '';
       for (const id of ['aBar', 'thBar']) { $(id).firstElementChild.style.width = 0; $(id).classList.remove('done'); }
-      $('rebuildCard').style.display = 'none';
+      $('rebuildCard').style.display = 'none'; $('rRebuild').removeAttribute('src');
       cfg.nodes.forEach(n => $('n-' + n.name).style.opacity = 1);
     } else if (m.type === 'tick') {
       (m.events || []).forEach(ev => {
