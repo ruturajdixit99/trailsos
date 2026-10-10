@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from ai.provider import AIProvider, AIResult, apply_labels
@@ -28,6 +29,7 @@ class SosPayload:
     thumb_format: str
     voice_seconds: float
     ai_results: list = field(default_factory=list)
+    sent_text: dict = field(default_factory=dict)  # kind -> {"text", "shortened", "original_chars"} actually sent
 
     def sizes(self) -> dict:
         return {ContentType(k).name.lower(): len(v) for k, v in self.parts.items()}
@@ -37,7 +39,10 @@ def build_sos(provider: AIProvider, voice_path: Path = SAMPLE_VOICE, photo_path:
     pcm = voice.load_wav(voice_path, seconds=5.0)
     photo = Image.open(photo_path)
     with ThreadPoolExecutor(2) as pool:  # both AI calls at once: the hiker waits for the slower one only
-        f_tr = pool.submit(provider.run_transcribe, voice.wav_bytes(pcm))
+        # 1 s of trailing silence for the speech model only (Whisper drops words that end right at the
+        # edge of a clip); the voice note sent over the mesh is still exactly the 5 s clip
+        stt_pcm = np.concatenate([pcm, np.zeros(voice.SAMPLE_RATE, dtype=pcm.dtype)])
+        f_tr = pool.submit(provider.run_transcribe, voice.wav_bytes(stt_pcm))
         f_cap = pool.submit(provider.run_caption, photo)
         tr, cap = f_tr.result(), f_cap.result()
     bits, codec = voice.encode(pcm)
@@ -48,7 +53,12 @@ def build_sos(provider: AIProvider, voice_path: Path = SAMPLE_VOICE, photo_path:
         ContentType.AUDIO: bytes([CODEC_IDS[codec]]) + bits,
         ContentType.THUMBNAIL: thumb,
     }
-    return SosPayload(parts, codec, fmt, len(pcm) / voice.SAMPLE_RATE, [tr, cap])
+    sent = {}
+    for r, part in ((tr, ContentType.TRANSCRIPT), (cap, ContentType.CAPTION)):
+        text, _ = mtext.unpack(parts[part])
+        sent[r.kind] = {"text": text, "shortened": text != " ".join(r.text().split()),
+                        "original_chars": len(r.text())}
+    return SosPayload(parts, codec, fmt, len(pcm) / voice.SAMPLE_RATE, [tr, cap], sent)
 
 
 @dataclass
@@ -65,7 +75,8 @@ class RangerView:
         new_ai = None
         if part in ("transcript", "caption"):
             text, conf = mtext.unpack(data)
-            self.view[part] = {"text": text, "confidence": conf, "labels": apply_labels(part, conf)}
+            self.view[part] = {"text": text, "confidence": conf, "labels": apply_labels(part, conf),
+                               "shortened": text.endswith(mtext.ELLIPSIS)}
             if part == "caption" and rebuild:
                 new_ai = self.rebuild_from_caption()
         elif part == "audio":

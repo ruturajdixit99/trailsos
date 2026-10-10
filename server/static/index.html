@@ -466,6 +466,7 @@ function render(m) {
   $('sReroute').textContent = s.reroutes; $('sRate').textContent = Math.round(s.effective_rate_bps).toLocaleString();
   for (const [part, elId, pl] of [['transcript', 'rTranscript', 'tPill'], ['caption', 'rCaption', 'cPill']]) {
     if (r[part]) { $(elId).className = ''; $(elId).innerHTML = `“${esc(r[part].text)}” <div class="muted">confidence ${(r[part].confidence * 100).toFixed(0)}%</div>`;
+      if (r[part].shortened) $(elId).innerHTML += '<div class="muted">✂ shortened on the hiker phone to fit one packet (nothing lost in transit)</div>';
       $(pl).innerHTML = r[part].labels.length ? pill(r[part].labels) : '<span class="pill ok">received</span>'; }
   }
   for (const [part, bar, cnt] of [['audio', 'aBar', 'aCount'], ['thumbnail', 'thBar', 'thCount']]) {
@@ -600,7 +601,8 @@ function connect() {
       if (m.radio) showRadio(m.radio, m.route);
       if (m.links) drawLinks(m.links);
       $('hikerAi').innerHTML = '<h3>On-device AI</h3>' + Object.entries(m.sender_ai).map(([k, v]) =>
-        `<div style="margin-bottom:6px"><b>${k}</b> ${pill(v.labels)}<br>${esc(v.text)} <span class="muted">(${(v.confidence * 100).toFixed(0)}%)</span></div>`).join('') +
+        `<div style="margin-bottom:6px"><b>${k}</b> ${pill(v.labels)}<br>${esc(v.text)} <span class="muted">(${(v.confidence * 100).toFixed(0)}%${v.model ? ', ' + esc(v.model) : ''})</span>` +
+        (v.shortened ? `<div class="muted">✂ shortened from ${v.original_chars} chars to fit one packet</div>` : '') + `</div>`).join('') +
         `<div class="muted">Payload: ${Object.entries(m.sizes).map(([k, v]) => `${k} ${v} B`).join(' · ')} (${m.codec})</div>`;
       for (const id of ['rTranscript', 'rCaption', 'rAudio', 'rThumb']) { $(id).className = 'muted'; $(id).textContent = 'not arrived'; }
       for (const id of ['tPill', 'cPill', 'aCount', 'thCount']) $(id).innerHTML = '';

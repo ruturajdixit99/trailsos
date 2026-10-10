@@ -29,6 +29,7 @@ from PIL import Image, ImageDraw
 log = logging.getLogger("trail_sos.ai")
 
 RECONSTRUCTION_LABEL = "AI reconstruction, not the real photo"
+CAPTION_MAX_BYTES = 149  # caption part budget (150 B) minus the 1-byte confidence
 UNVERIFIED_LABEL = "unverified"
 
 
@@ -120,7 +121,7 @@ class MockProvider(AIProvider):
                 "pine trees, snowy peak behind, clear sky.", self.caption_conf)
 
     def transcribe(self, audio_wav):
-        return ("Help. I fell and hurt my ankle on the north ridge trail, near mile four. I can't walk.",
+        return ("Help. I hurt my ankle on North Ridge trail, mile four. I can't walk.",
                 self.transcript_conf)
 
     def rebuild_image(self, caption):
@@ -157,7 +158,8 @@ class NicrronNinooProvider(AIProvider):
     name = "nicrronninoo"
     CAPTION_PROMPT = (
         "You are helping a search-and-rescue ranger who will receive this over a tiny radio link. "
-        "Describe the photo in at most 140 characters: the person's condition and any visible injury, "
+        "Describe the photo in at most 110 characters (hard limit, it must fit one radio packet): the person's "
+        "condition and any visible injury, "
         "posture, clothing colours, and terrain/landmarks useful for finding them. No speculation beyond "
         "what is visible. Reply ONLY as JSON: {\"caption\": string, \"confidence\": number 0-1} where "
         "confidence is how sure you are the caption is accurate.")
@@ -193,14 +195,24 @@ class NicrronNinooProvider(AIProvider):
             "model": self.model, "max_tokens": 200, "temperature": 0,
             "messages": [{"role": "user", "content": [{"type": "text", "text": self.CAPTION_PROMPT},
                                                       {"type": "image_url", "image_url": {"url": url}}]}]}))
-        content = r.json()["choices"][0]["message"]["content"]
+        caption, conf = self._parse_caption(r.json()["choices"][0]["message"]["content"])
+        if len(caption.encode("utf-8")) > CAPTION_MAX_BYTES:  # too long for its packet: ask once to shorten
+            r = self._ok(self._client.post("/chat/completions", json={
+                "model": self.model, "max_tokens": 120, "temperature": 0,
+                "messages": [{"role": "user", "content":
+                              f"Shorten this to at most 100 characters, keeping injury, posture and location cues. "
+                              f"Reply with only the shortened text.\n\n{caption}"}]}))
+            caption = r.json()["choices"][0]["message"]["content"].strip().strip('"')
+        # confidence is self-reported by the model; capped so it never looks more certain than it is
+        return caption, max(0.0, min(conf, 0.95))
+
+    @staticmethod
+    def _parse_caption(content: str) -> tuple[str, float]:
         m = re.search(r"\{.*\}", content, re.S)
         if not m:
             raise RuntimeError(f"caption reply was not JSON: {content[:120]}")
         d = json.loads(m.group(0))
-        conf = float(d.get("confidence", 0.5))
-        # self-reported by the model; capped so it can never look more certain than it is
-        return str(d["caption"]).strip(), max(0.0, min(conf, 0.95))
+        return " ".join(str(d["caption"]).split()), float(d.get("confidence", 0.5))
 
     def transcribe(self, audio_wav):
         r = self._ok(self._client.post("/audio/transcriptions",

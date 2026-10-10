@@ -178,7 +178,9 @@ async def send_sos(req: SosRequest):
     run.radio = _radio_info(sim)
     run.start_msg = {"type": "start", "msg_id": f"{msg_id:08x}", "sizes": run.payload_sizes,
                          "codec": payload.codec,
-                         "sender_ai": {r.kind: {"text": r.text(), "confidence": r.confidence, "labels": r.labels}
+                         # the hiker sees exactly what goes on air (and whether it had to be shortened)
+                         "sender_ai": {r.kind: {**payload.sent_text[r.kind], "confidence": r.confidence,
+                                                "labels": r.labels, "model": r.model}
                                        for r in payload.ai_results},
                          "config": {"loss": req.loss, "rate_bps": cfg.rate_bps, "seed": req.seed},
                          "radio": _radio_info(sim), "links": sim.link_info(),
