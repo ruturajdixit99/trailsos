@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from ai.provider import get_provider
 from media import voice
 from mesh.sim import RATE_PRESETS, MeshSim, SimConfig, demo_topology
+from mesh.ledger import NetworkLedger
 from mesh.status import StatusTracker
 from observability.prism import PrismTracer
 from server.sos import ROOT, RangerView, build_sos
@@ -52,6 +53,7 @@ class Run:
     codec: str
     knockout: Optional[str] = None
     knockout_after_rx: int = 4
+    ledger: Optional[NetworkLedger] = None
     knocked: bool = False
     rx_count: int = 0
     pending: list = field(default_factory=list)
@@ -139,8 +141,10 @@ async def send_sos(req: SosRequest):
     tracker = StatusTracker(msg_id, cfg.rate_bps, cfg.ack_margin_s)
     run = Run(sim, tracker, RangerView(hub.provider), msg_id, session, max(req.speed, 0.1),
               payload.sizes(), payload.codec, req.knockout, req.knockout_after_rx, pending=pending)
+    run.ledger = NetworkLedger(msg_id, SRC, DST)
     for ev in pending:
         tracker.on_event(ev)
+        run.ledger.on_event(ev)
     hub.run = run
     await hub.broadcast({"type": "start", "msg_id": f"{msg_id:08x}", "sizes": run.payload_sizes,
                          "codec": payload.codec,
@@ -174,7 +178,8 @@ async def set_speed(speed: float):
 async def status():
     if not hub.run:
         return {"state": "idle"}
-    return {**hub.run.tracker.snapshot(), "ranger": hub.run.ranger.view, "sim_t": round(hub.run.sim.t, 2)}
+    return {**hub.run.tracker.snapshot(), "ranger": hub.run.ranger.view, "sim_t": round(hub.run.sim.t, 2),
+            "ledger": hub.run.ledger.snapshot()}
 
 
 @app.get("/api/media/{msg_id}/{name}")
@@ -206,6 +211,7 @@ def _tick_msg(run: Run, events: list) -> dict:
             "events": [e.to_dict() for e in events],
             "status": run.tracker.snapshot(),
             "ranger": run.ranger.view,
+            "ledger": run.ledger.snapshot() if run.ledger else None,
             "alive": {n.name: n.alive for n in run.sim.nodes},
             "queues": {n.name: len(n.queue) + (1 if n.busy else 0) for n in run.sim.nodes}}
 
@@ -229,6 +235,7 @@ async def drive(run: Run) -> None:
             run.pending.clear()
             for ev in events:
                 run.tracker.on_event(ev)
+                run.ledger.on_event(ev)
                 if ev.msg_id == run.msg_id and ev.kind == "received":
                     run.rx_count += 1
                 if ev.msg_id == run.msg_id and ev.kind == "reassembled":
@@ -242,12 +249,14 @@ async def drive(run: Run) -> None:
                 events += run.pending
                 for ev in run.pending:
                     run.tracker.on_event(ev)
+                    run.ledger.on_event(ev)
                 run.pending.clear()
             await hub.broadcast(_tick_msg(run, events))
             if run.tracker.state in ("delivered", "failed"):
                 run.finished = True
                 n = hub.tracer.finalize(run.session, _network_metadata(run))
                 await hub.broadcast({"type": "done", "status": run.tracker.snapshot(), "traces_queued": n,
+                                     "ledger": run.ledger.snapshot(),
                                      "tracing": hub.handshake})
                 return
             if run.sim.idle:  # should not happen: the source always settles

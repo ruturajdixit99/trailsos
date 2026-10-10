@@ -44,7 +44,8 @@ def test_nicrronninoo_without_config_falls_back(monkeypatch):
 
 
 @pytest.mark.live
-@pytest.mark.skipif(not os.getenv("NICRRONNINOO_API_KEY"), reason="no NicrronNinoo credentials")
+@pytest.mark.skipif(not all(os.getenv(k) for k in ("NICRRONNINOO_BASE_URL", "NICRRONNINOO_API_KEY", "NICRRONNINOO_MODEL")),
+                    reason="NicrronNinoo base URL / key / model not all set")
 def test_nicrronninoo_live_budget():
     p = get_provider()
     payload = build_sos(p)
