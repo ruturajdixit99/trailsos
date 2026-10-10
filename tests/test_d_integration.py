@@ -231,9 +231,10 @@ def _drive_app(body):
             while True:
                 m = ws.receive_json()
                 if m["type"] == "tick":
-                    states.append(m["status"]["state"])
-                    kinds.update(e["kind"] for e in m["events"])
-                elif m["type"] == "done":
+                    if "status" in m and m.get("focus") == msg_id:  # empty network ticks carry no message yet
+                        states.append(m["status"]["state"])
+                        kinds.update(e["kind"] for e in m["events"])
+                elif m["type"] == "done" and m.get("msg_id") == msg_id:
                     final = m
                     break
         media = {n: client.get(f"/api/media/{msg_id}/{n}") for n in ("audio.wav", "thumbnail.png", "rebuild.png")}
@@ -291,3 +292,67 @@ def test_lab_api_job_roundtrip():
         r = j["result"]
         assert [v["key"] for v in r["variants"]] == ["text", "image"] and len(r["trials"]) == 10
         assert len(r["sweep"]["points"]) == 6
+
+
+def _wait_all_settled(client, ws, expect, timeout_msgs=4000):
+    done = {}
+    for _ in range(timeout_msgs):
+        m = ws.receive_json()
+        if m["type"] == "done":
+            done[m["msg_id"]] = m["status"]["state"]
+            if len(done) >= expect:
+                return done
+    raise AssertionError(f"only {len(done)} of {expect} settled")
+
+
+def test_api_any_phone_to_any_phone():
+    from fastapi.testclient import TestClient
+
+    from server import app as appmod
+    appmod.hub.tracer = PrismTracer(project_id="", api_key="")
+    with TestClient(appmod.app) as client:
+        with client.websocket_connect("/ws") as ws:
+            base = {"rate": "fast", "speed": 40, "seed": 3}
+            r1 = client.post("/api/send", json={**base, "src": "B", "dst": "D", "kind": "text", "text": "hello D",
+                                               "new_session": True}).json()
+            r2 = client.post("/api/send", json={**base, "src": "E", "dst": "Hiker", "kind": "video"}).json()
+            r3 = client.post("/api/send", json={**base, "src": "Ranger", "dst": "C", "kind": "voice"}).json()
+            assert client.post("/api/send", json={"src": "B", "dst": "B", "kind": "text"}).status_code == 400
+            done = _wait_all_settled(client, ws, 3)
+            assert {r1["msg_id"], r2["msg_id"], r3["msg_id"]} <= done.keys()
+            assert set(done.values()) == {"delivered"}
+            st = client.get("/api/status").json()
+            assert len(st["messages"]) == 3 and {(m["src"], m["dst"]) for m in st["messages"]} == {
+                ("B", "D"), ("E", "Hiker"), ("Ranger", "C")}
+            assert client.get(f"/api/media/{r2['msg_id']}/video.gif").status_code == 200
+            assert client.post(f"/api/focus/{r1['msg_id']}").status_code == 200
+
+
+def test_api_scenario_everyone_delivered():
+    from fastapi.testclient import TestClient
+
+    from server import app as appmod
+    appmod.hub.tracer = PrismTracer(project_id="", api_key="")
+    with TestClient(appmod.app) as client:
+        with client.websocket_connect("/ws") as ws:
+            r = client.post("/api/scenario", json={"name": "busy_mesh", "rate": "fast", "speed": 40, "seed": 1})
+            assert r.status_code == 200 and r.json()["messages"] == 6
+            done = _wait_all_settled(client, ws, 6)
+            assert list(done.values()).count("delivered") == 6
+
+
+def test_api_quickcheck():
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from server import app as appmod
+    with TestClient(appmod.app) as client:
+        job = client.post("/api/quickcheck").json()["job"]
+        for _ in range(400):
+            j = client.get(f"/api/job/{job}").json()
+            if j["status"] != "running":
+                break
+            time.sleep(0.05)
+        assert j["status"] == "done"
+        assert j["result"]["passed"] == j["result"]["total"] == 9
