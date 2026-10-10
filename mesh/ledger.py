@@ -12,7 +12,7 @@ from mesh.sim import Event
 
 LOSS_REASONS = ("loss", "crc_fail", "weak signal", "collision", "half-duplex", "receiver down", "sender down",
                 "out of range")
-PART_ORDER = {"transcript": 0, "caption": 1, "audio": 2, "thumbnail": 3, "nack": 4, "e2e_ack": 5}
+PART_ORDER = {"transcript": 0, "caption": 1, "audio": 2, "thumbnail": 3, "video": 4, "nack": 5, "e2e_ack": 6}
 
 
 @dataclass
@@ -206,7 +206,7 @@ class NetworkLedger:
         lost = sum(l.lost_total for l in self.links.values())
         acks = sum(l.acks_sent for l in self.links.values())
         acks_lost = sum(l.acks_lost for l in self.links.values())
-        media = [c for c in self.chunks.values() if c.part in ("transcript", "caption", "audio", "thumbnail")]
+        media = [c for c in self.chunks.values() if c.part in ("transcript", "caption", "audio", "thumbnail", "video")]
         return {
             "source_chunks": len([c for c in media if c.source_sends]),
             "source_frames": self.src_frames, "source_bytes": self.src_bytes,

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from mesh.packet import HEADER_SIZE, airtime_s
 from mesh.sim import ACK_SIZE, Event
 
-PART_ORDER = ("transcript", "caption", "audio", "thumbnail")
+PART_ORDER = ("transcript", "caption", "audio", "thumbnail", "video")
 
 
 @dataclass

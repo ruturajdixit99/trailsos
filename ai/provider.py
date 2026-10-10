@@ -167,6 +167,27 @@ def sketch_from_caption(caption: str) -> bytes:
     return buf.getvalue()
 
 
+class _RetryClient:
+    """httpx.Client that retries once on connection-level failures (parallel calls can race on a pooled
+    connection); HTTP error statuses are not retried here."""
+
+    def __init__(self, **kw):
+        self._c = httpx.Client(**kw)
+
+    def _do(self, fn, *a, **k):
+        try:
+            return fn(*a, **k)
+        except httpx.TransportError as e:
+            log.info("NicrronNinoo request retry after %s", type(e).__name__)
+            return fn(*a, **k)
+
+    def post(self, *a, **k):
+        return self._do(self._c.post, *a, **k)
+
+    def get(self, *a, **k):
+        return self._do(self._c.get, *a, **k)
+
+
 class NicrronNinooProvider(AIProvider):
     """Sponsor provider: Nicrron's OpenAI-compatible gateway."""
     name = "nicrronninoo"
@@ -187,7 +208,7 @@ class NicrronNinooProvider(AIProvider):
         self.rebuild_enabled = os.getenv("NICRRONNINOO_REBUILD", "1") != "0"
         if not self.api_key:
             raise ProviderNotConfigured("NICRRONNINOO_API_KEY not set")
-        self._client = httpx.Client(base_url=self.base_url, timeout=timeout, transport=transport,
+        self._client = _RetryClient(base_url=self.base_url, timeout=timeout, transport=transport,
                                     headers={"Authorization": f"Bearer {self.api_key}"})
 
     def model_for(self, method: str) -> str:

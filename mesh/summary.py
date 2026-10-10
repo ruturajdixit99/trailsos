@@ -85,12 +85,12 @@ def summarize(sim, tracker: StatusTracker, ledger: NetworkLedger, payload_sizes:
     arrivals = {e.part: e.t for e in ev if e.kind == "reassembled"}
     if arrivals:
         bullets.append("Arrival at ranger: " + ", ".join(f"{p} {_fmt_t(arrivals[p])}" for p in
-                                                         ("transcript", "caption", "audio", "thumbnail")
+                                                         ("transcript", "caption", "audio", "thumbnail", "video")
                                                          if p in arrivals) + ".")
         if "transcript" in arrivals and s["state"] == "delivered":
             bullets.append(f"First useful information (transcript) reached the ranger after {arrivals['transcript']:.1f} s, "
                            f"{s['elapsed_s'] - arrivals['transcript']:.1f} s before the full message was confirmed.")
-    missing = [p for p in ("transcript", "caption", "audio", "thumbnail") if p in s["parts"] and p not in arrivals]
+    missing = [p for p in ("transcript", "caption", "audio", "thumbnail", "video") if p in s["parts"] and p not in arrivals]
     if missing:
         bullets.append("Not (yet) reassembled at ranger: " + ", ".join(
             f"{p} {s['parts'][p]['have']}/{s['parts'][p]['of']} chunks" for p in missing) + ".")

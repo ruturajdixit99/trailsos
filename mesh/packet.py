@@ -43,19 +43,21 @@ class ContentType(IntEnum):
     ACK = 5        # hop-by-hop ack
     E2E_ACK = 6    # end-to-end ack: whole message verified at destination
     NACK = 7       # destination asks the source to resend specific chunks
+    VIDEO = 8      # keyframes (animated WebP)
 
 
-MEDIA_TYPES = (ContentType.TRANSCRIPT, ContentType.CAPTION, ContentType.AUDIO, ContentType.THUMBNAIL)
+MEDIA_TYPES = (ContentType.TRANSCRIPT, ContentType.CAPTION, ContentType.AUDIO, ContentType.THUMBNAIL, ContentType.VIDEO)
 PART_NAMES = {
     ContentType.TRANSCRIPT: "transcript",
     ContentType.CAPTION: "caption",
     ContentType.AUDIO: "audio",
     ContentType.THUMBNAIL: "thumbnail",
+    ContentType.VIDEO: "video",
 }
 
 
 def part_bit(ct: ContentType) -> int:
-    return 1 << int(ct)
+    return 1 << MEDIA_TYPES.index(ct)  # media parts only: fits the u8 parts mask
 
 
 class PacketError(ValueError):

@@ -43,7 +43,7 @@ from mesh.packet import (
 
 RATE_PRESETS = {"long_range": 1000.0, "fast": 21875.0}
 ACK_SIZE = HEADER_SIZE + 1
-SEND_ORDER = (ContentType.TRANSCRIPT, ContentType.CAPTION, ContentType.AUDIO, ContentType.THUMBNAIL)
+SEND_ORDER = (ContentType.TRANSCRIPT, ContentType.CAPTION, ContentType.AUDIO, ContentType.THUMBNAIL, ContentType.VIDEO)
 WHOLE_PART = 0xFFFF
 
 
