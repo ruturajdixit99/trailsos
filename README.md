@@ -4,6 +4,50 @@
 
 **Track:** CHRP, Off-Grid Everything (Off-Grid Mesh)
 
+## Transfer Lab (home page): compare speed and data loss
+Open **http://127.0.0.1:8000/**. Pick what to send and set the network, then press **Run**.
+
+**What you can send:**
+- Text (69 B)
+- Audio as Codec2 (751 B)
+- Image as a 48×48 thumbnail (380 B)
+- the full SOS (all of the above plus the caption)
+- for comparison, uncompressed audio (G.711, 40 KB) and the original photo (15 KB)
+
+**How it runs:** each content type is sent on its own, many times with seeds, over the 6-phone mesh. Every number comes from simulator events.
+
+**What you see:**
+- **What happened:** a plain-language summary, e.g. "compressing the audio makes it arrive 41× faster".
+- **Speed:**
+  - time until the ranger has everything (median dot, line from fastest 10% to slowest 10%)
+  - how much has arrived over time (average progress curve per content type)
+- **Loss:**
+  - share of frames lost on the air
+  - share of trials delivered intact, every byte verified and confirmed
+  - why frames were lost (table shaded by count)
+  - cost on air: bytes transmitted for every useful byte delivered
+- **What if the network gets worse?:** sweeps loss %, LoRa hop distance or terrain loss, plotting median time and delivered-intact share for each content type.
+- **All numbers / Every trial:** tables behind every chart, sortable, with CSV and JSON download.
+- **Terminal version:** `python scripts/lab.py [--raw] [--radio lora] [--sweep loss] [--csv out.csv]`.
+
+**Simple model, 20% loss per link, 1,000 bps, 15 trials:**
+
+| Content | Size | Has everything (median) | Delivered intact | Frames lost | Bytes on air |
+|---|---|---|---|---|---|
+| Text | 69 B | 4.0 s | 100% | 23% | 1.6 KB |
+| Image (thumbnail) | 380 B | 15 s | 100% | 21% | 4.8 KB |
+| Audio (Codec2) | 751 B | 22 s | 100% | 22% | 8.0 KB |
+| Full SOS | 1.3 KB | 40 s | 100% | 20% | 15 KB |
+| Image (original) | 15 KB | 5.9 min | 100% | 21% | 151 KB |
+| Audio (uncompressed) | 40 KB | 14.5 min | 100% | 20% | 388 KB |
+
+**Over realistic LoRa (LongFast, 1.8 km hops):**
+- Text arrives in about 11 s and Codec2 audio in about 51 s.
+- The original photo takes about 32 minutes and arrives intact in only 75% of trials.
+- Uncompressed audio never arrives.
+
+The live phone-to-phone demo of a single SOS is at **/demo**.
+
 ## What it does and why
 When someone is hurt in the backcountry, a text-only SOS leaves out a lot ("which ankle? can you walk? where are you?"). A voice note and a photo carry that context, but LoRa gives you about 1,000 bps and 230-byte packets. Trail SOS:
 
@@ -110,7 +154,7 @@ Both models share the same protocol:
 - **Randomness:** all of it comes from a single seeded `random.Random`.
 
 ## Test results
-`pytest`: **70 passed, 1 skipped.** The skipped test is the live PRISM handshake, which needs PRISM keys in `.env`. The live NicrronNinoo test runs and passes.
+`pytest`: **75 passed, 1 skipped.** The skipped test is the live PRISM handshake, which needs PRISM keys in `.env`. The live NicrronNinoo test runs and passes.
 
 | # | Test | Result |
 |---|---|---|

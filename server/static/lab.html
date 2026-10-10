@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transfer Lab</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --raise: #ffffff;
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+    --accent: #2a78d6; --accent-ink: #ffffff;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+    --seq-0: #cde2fb; --seq-1: #86b6ef; --seq-2: #3987e5; --seq-3: #1c5cab; --seq-4: #0d366b;
+    --good: #0ca30c; --critical: #d03b3b; --good-ink: #006300;
+    --seq-ink-0: #0b0b0b; --seq-ink-1: #0b0b0b; --seq-ink-2: #ffffff; --seq-ink-3: #ffffff; --seq-ink-4: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --raise: #222220;
+      --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+      --accent: #3987e5;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+      --seq-0: #184f95; --seq-1: #1c5cab; --seq-2: #2a78d6; --seq-3: #5598e7; --seq-4: #9ec5f4;
+      --good-ink: #0ca30c;
+      --seq-ink-0: #ffffff; --seq-ink-1: #ffffff; --seq-ink-2: #ffffff; --seq-ink-3: #0b0b0b; --seq-ink-4: #0b0b0b;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --raise: #222220;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --accent: #3987e5;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+    --seq-0: #184f95; --seq-1: #1c5cab; --seq-2: #2a78d6; --seq-3: #5598e7; --seq-4: #9ec5f4;
+    --good-ink: #0ca30c;
+    --seq-ink-0: #ffffff; --seq-ink-1: #ffffff; --seq-ink-2: #ffffff; --seq-ink-3: #0b0b0b; --seq-ink-4: #0b0b0b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 24px 20px 64px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  h1 { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -.01em; }
+  .sub { color: var(--ink-2); margin-top: 4px; max-width: 720px; }
+  header a { color: var(--accent); text-decoration: none; font-weight: 550; }
+  h2 { font-size: 17px; font-weight: 650; margin: 34px 0 4px; }
+  h2 + .hint { color: var(--ink-2); margin-bottom: 12px; }
+  .hint { color: var(--muted); font-size: 12.5px; }
+
+  /* control row */
+  .controls { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--ink-2); }
+  .field > span { font-weight: 550; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--grid); border-radius: 999px; padding: 5px 11px; cursor: pointer; user-select: none; background: var(--raise); color: var(--ink); font-size: 13px; }
+  .chip input { display: none; }
+  .chip .key { width: 10px; height: 10px; border-radius: 3px; opacity: .25; }
+  .chip.on { border-color: var(--ink-2); }
+  .chip.on .key { opacity: 1; }
+  .chip small { color: var(--muted); }
+  select, input[type=number] { font: inherit; color: var(--ink); background: var(--raise); border: 1px solid var(--grid); border-radius: 8px; padding: 6px 8px; min-width: 90px; }
+  input[type=range] { width: 130px; accent-color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--grid); border-radius: 8px; overflow: hidden; }
+  .seg button { font: inherit; border: 0; background: var(--raise); color: var(--ink-2); padding: 6px 12px; cursor: pointer; }
+  .seg button.on { background: var(--ink); color: var(--surface); }
+  button.run { font: inherit; font-weight: 650; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 9px 22px; cursor: pointer; }
+  button.run:disabled { opacity: .5; cursor: default; }
+  .hide { display: none !important; }
+  .progress { height: 3px; background: var(--grid); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .status { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 18px; }
+
+  /* insight + cards */
+  .insights { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 14px 18px; margin-top: 18px; }
+  .insights ul { margin: 6px 0 0; padding-left: 18px; }
+  .insights li { margin: 3px 0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 10px; margin-top: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 12px 14px; }
+  .card .t { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+  .card .t i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .card .n { color: var(--muted); font-size: 12px; margin: 2px 0 8px; min-height: 17px; }
+  .card .big { font-size: 26px; font-weight: 650; letter-spacing: -.01em; }
+  .card .big small { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  .card .rows { margin-top: 8px; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12.5px; color: var(--ink-2); }
+  .card .rows b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+
+  /* chart panels */
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+  .panel { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 14px 16px 10px; }
+  .panel h3 { margin: 0; font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .panel .q { color: var(--ink-2); font-size: 12.5px; margin: 2px 0 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin: 2px 0 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+  .legend i.box { width: 10px; height: 10px; border-radius: 3px; }
+  svg { display: block; width: 100%; overflow: visible; }
+  svg text { fill: var(--muted); font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+  svg text.lbl { fill: var(--ink-2); font-size: 12px; }
+  svg text.val { fill: var(--ink); font-size: 12px; font-weight: 600; }
+  svg .gridline { stroke: var(--grid); stroke-width: 1; }
+  svg .axisline { stroke: var(--axis); stroke-width: 1; }
+  svg .hit { fill: transparent; cursor: default; }
+  svg .hit:hover + .mark, svg .mark:hover { filter: brightness(1.12); }
+  .tip { position: fixed; pointer-events: none; background: var(--raise); color: var(--ink); border: 1px solid var(--ring); box-shadow: 0 6px 20px rgba(0,0,0,.14); border-radius: 8px; padding: 8px 10px; font-size: 12px; z-index: 10; display: none; min-width: 140px; }
+  .tip .h { color: var(--muted); margin-bottom: 4px; }
+  .tip .r { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .tip .r b { font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tip .r span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+  .tip i { display: inline-block; width: 12px; height: 2px; }
+  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--axis); padding: 6px 8px; white-space: nowrap; cursor: pointer; position: sticky; top: 0; background: var(--surface); }
+  th.num, td.num { text-align: right; }
+  td { border-bottom: 1px solid var(--grid); padding: 5px 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td .k { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+  .scroll { max-height: 420px; overflow: auto; }
+  .tools { display: flex; gap: 8px; align-items: center; }
+  .linkbtn { font: inherit; font-size: 12px; background: none; border: 1px solid var(--grid); color: var(--ink-2); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+  .heat td.c { text-align: right; min-width: 64px; }
+  .ok { color: var(--good-ink); font-weight: 600; } .bad { color: var(--critical); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Transfer Lab</h1>
+      <div class="sub">Send text, audio and an image from the hiker to the ranger across a 6-phone LoRa mesh, many times over. Compare how fast each one arrives and how much is lost on the way.</div>
+    </div>
+    <a href="/demo">Live mesh demo →</a>
+  </header>
+
+  <!-- one control row scopes everything below -->
+  <div class="controls">
+    <div class="field"><span>What to send</span><div class="chips" id="variantChips"></div></div>
+    <div class="field"><span>Radio model</span>
+      <div class="seg" id="radioSeg"><button data-v="simple" class="on">Simple</button><button data-v="lora">Realistic LoRa</button></div></div>
+    <div class="field simple-only"><span>Loss per link <b id="lossOut">20%</b></span><input type="range" id="loss" min="0" max="60" value="20"></div>
+    <div class="field simple-only"><span>Data rate</span><select id="rate"><option value="long_range">1,000 bps</option><option value="fast">21,875 bps</option></select></div>
+    <div class="field lora-only hide"><span>LoRa preset</span><select id="preset"></select></div>
+    <div class="field lora-only hide"><span>Hop distance <b id="kmOut">1.8 km</b></span><input type="range" id="km" min="0.6" max="3" step="0.1" value="1.8"></div>
+    <div class="field lora-only hide"><span>Terrain loss <b id="terrOut">0 dB</b></span><input type="range" id="terrain" min="0" max="15" step="1" value="0"></div>
+    <div class="field"><span>Relay failure</span><select id="ko"><option value="">None</option><option value="B">B fails at 15 s</option><option value="C">C fails at 15 s</option><option value="D">D fails at 15 s</option><option value="E">E fails at 15 s</option></select></div>
+    <div class="field"><span>Trials</span><input type="number" id="trials" min="1" max="300" value="30"></div>
+    <div class="field"><span>Seed</span><input type="number" id="seed" value="0"></div>
+    <button class="run" id="runBtn">Run</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+  <div class="status" id="status">Pick what to send and press Run.</div>
+
+  <div id="results" class="hide">
+    <div class="insights"><b>What happened</b><ul id="insights"></ul></div>
+    <div class="cards" id="cards"></div>
+
+    <h2>Speed</h2>
+    <div class="hint">Time is simulated seconds from pressing send. The ranger "has everything" when every chunk has been reassembled and checked.</div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Time until the ranger has everything <span class="seg" id="scaleSeg"><button data-v="log" class="on">Log</button><button data-v="lin">Linear</button></span></h3>
+        <div class="q">Dot = median trial · line = fastest 10% to slowest 10%</div>
+        <div id="rangeChart"></div>
+      </div>
+      <div class="panel">
+        <h3>How much has arrived over time <span class="seg" id="xSeg"><button data-v="log" class="on">Log time</button><button data-v="lin">Linear</button></span></h3>
+        <div class="q">Average share of the content's chunks at the ranger</div>
+        <div class="legend" id="curveLegend"></div>
+        <div id="curveChart"></div>
+      </div>
+    </div>
+
+    <h2>Loss</h2>
+    <div class="hint">Frames are lost on the air all the time; retransmissions and parity are what turn that into intact delivery (or not).</div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Frames lost on the air</h3>
+        <div class="q">Share of radio transmissions that never got through, averaged over trials</div>
+        <div id="lossChart"></div>
+      </div>
+      <div class="panel">
+        <h3>Content delivered intact</h3>
+        <div class="q">Share of trials where the ranger got every byte, verified and confirmed</div>
+        <div id="intactChart"></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="panel">
+        <h3>Why frames were lost</h3>
+        <div class="q">Lost frames per trial, by cause (stronger shade = more)</div>
+        <div id="causeTable"></div>
+      </div>
+      <div class="panel">
+        <h3>Cost on air</h3>
+        <div class="q">Bytes transmitted across all hops for every useful byte delivered</div>
+        <div id="overheadChart"></div>
+      </div>
+    </div>
+
+    <h2>What if the network gets worse?</h2>
+    <div class="hint">Re-runs the same content at several network conditions (fewer trials per point).</div>
+    <div class="controls" style="padding:10px 14px">
+      <div class="field"><span>Vary</span><select id="sweepParam"></select></div>
+      <div class="field"><span>Trials per point</span><input type="number" id="sweepTrials" min="3" max="100" value="12"></div>
+      <button class="run" id="sweepBtn">Run sweep</button>
+    </div>
+    <div id="sweepOut" class="hide">
+      <div class="legend" id="sweepLegend" style="margin-top:12px"></div>
+      <div class="grid2">
+        <div class="panel"><h3>Median time until the ranger has everything</h3><div class="q" id="sweepQ1"></div><div id="sweepTime"></div></div>
+        <div class="panel"><h3>Delivered intact</h3><div class="q" id="sweepQ2"></div><div id="sweepDeliv"></div></div>
+      </div>
+    </div>
+
+    <h2>All numbers</h2>
+    <div class="hint">The same results as a table, one row per content type. Every chart above reads from this.</div>
+    <div class="panel"><div class="scroll" id="summaryTable"></div></div>
+
+    <h2 style="display:flex;justify-content:space-between;align-items:center">Every trial
+      <span class="tools"><select id="trialFilter"></select><button class="linkbtn" id="csvBtn">Download CSV</button><button class="linkbtn" id="jsonBtn">Download JSON</button></span></h2>
+    <div class="hint">Click a column to sort.</div>
+    <div class="panel"><div class="scroll" id="trialTable"></div></div>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+// optional ?theme=light|dark overrides the OS setting (handy on a projector)
+{ const t = new URLSearchParams(location.search).get('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; }
+const $ = id => document.getElementById(id);
+const SLOT = {text: 's1', audio: 's2', image: 's3', sos: 's4', audio_raw: 's5', image_raw: 's6'};  // fixed: colour follows content
+const color = k => `var(--${SLOT[k]})`;
+const CAUSE = {'loss': 'Random loss', 'crc_fail': 'Corrupted (CRC)', 'weak signal': 'Weak signal', 'collision': 'Collision',
+  'half-duplex': 'Receiver busy', 'receiver down': 'Relay down', 'sender down': 'Sender down', 'out of range': 'Out of range'};
+let catalog = [], meta = {}, result = null, selected = new Set(['text', 'audio', 'image', 'sos']);
+let radio = 'simple', rangeLog = true, curveLog = true, trialSort = {k: 't_arrive', dir: 1};
+
+const trim1 = v => (Math.round(v * 10) / 10).toString();
+const fmtS = s => s == null ? '—' : s < 10 ? trim1(s) + ' s' : s < 120 ? Math.round(s) + ' s' : s < 7200 ? trim1(s / 60) + ' min' : trim1(s / 3600) + ' h';
+const fmtB = b => b < 1000 ? b + ' B' : b < 1e6 ? (b / 1000).toFixed(b < 10000 ? 1 : 0) + ' KB' : (b / 1e6).toFixed(1) + ' MB';
+const fmtN = n => n == null ? '—' : n.toLocaleString(undefined, {maximumFractionDigits: 1});
+
+// ---------------------------------------------------------------- svg helpers
+const NS = 'http://www.w3.org/2000/svg';
+function s(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, x, y, str, cls, anchor = 'start') {
+  const t = s('text', {x, y, 'text-anchor': anchor, class: cls || ''}, parent); t.textContent = str; return t;
+}
+function niceTicks(max, n = 5) {
+  const raw = max / n, mag = 10 ** Math.floor(Math.log10(raw || 1)), f = raw / mag;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
+  const out = [0]; while (out[out.length - 1] < max - 1e-9) out.push(+(out[out.length - 1] + step).toFixed(6));  // always covers max
+  return out;
+}
+// round time steps for log time axes, thinned so labels never collide
+const TIME_STEPS = [0.5, 1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 14400, 28800, 86400];
+function timeTicks(min, max, X, minGap = 46) {
+  const out = []; let lastX = -Infinity;
+  for (const v of TIME_STEPS) { if (v < min * 0.999 || v > max * 1.001) continue; const px = X(v); if (px - lastX >= minGap) { out.push(v); lastX = px; } }
+  return out;
+}
+function thin(ticks, X, minGap = 40) { const out = []; let lastX = -Infinity; for (const v of ticks) { const px = X(v); if (px - lastX >= minGap) { out.push(v); lastX = px; } } return out; }
+function logTicks(min, max) {
+  const out = []; for (let p = Math.floor(Math.log10(min)); p <= Math.ceil(Math.log10(max)); p++) for (const m of [1, 2, 5]) { const v = m * 10 ** p; if (v >= min * 0.999 && v <= max * 1.001) out.push(v); }
+  return out;
+}
+// rounded data-end, square at the baseline (horizontal bar from x0 to x1)
+function hbar(g, x0, x1, y, h, fill) {
+  const w = Math.max(x1 - x0, 0), r = Math.min(4, w, h / 2);
+  return s('path', {d: `M${x0},${y} H${x0 + w - r} Q${x0 + w},${y} ${x0 + w},${y + r} V${y + h - r} Q${x0 + w},${y + h} ${x0 + w - r},${y + h} H${x0} Z`, fill, class: 'mark'}, g);
+}
+// tooltip: rows = [[colorKey|null, label, value]]
+const tip = $('tip');
+function showTip(ev, head, rows) {
+  tip.replaceChildren();
+  const h = document.createElement('div'); h.className = 'h'; h.textContent = head; tip.appendChild(h);
+  for (const [k, label, val] of rows) {
+    const r = document.createElement('div'); r.className = 'r';
+    const l = document.createElement('span');
+    if (k) { const i = document.createElement('i'); i.style.background = color(k); l.appendChild(i); }
+    l.appendChild(document.createTextNode(label));
+    const b = document.createElement('b'); b.textContent = val;
+    r.append(l, b); tip.appendChild(r);
+  }
+  tip.style.display = 'block';
+  const W = tip.offsetWidth, H = tip.offsetHeight;
+  tip.style.left = Math.min(ev.clientX + 14, innerWidth - W - 8) + 'px';
+  tip.style.top = Math.min(ev.clientY + 14, innerHeight - H - 8) + 'px';
+}
+const hideTip = () => tip.style.display = 'none';
+
+// ---------------------------------------------------------------- charts
+// one row per content type: horizontal bars, value at the tip
+function barChart(el, rows, {max, fmt, label = r => r.label}) {
+  el.replaceChildren();
+  const W = el.clientWidth || 520, rowH = 34, left = 150, right = 70, top = 6, H = top + rows.length * rowH + 22;
+  const svg = s('svg', {viewBox: `0 0 ${W} ${H}`, height: H}, el);
+  const xmax = max ?? Math.max(...rows.map(r => r.value), 1e-9);
+  const ticks = niceTicks(xmax, 4); const top_ = ticks[ticks.length - 1];
+  const x = v => left + (W - left - right) * v / top_;
+  for (const t of ticks) { s('line', {x1: x(t), x2: x(t), y1: top, y2: H - 20, class: t ? 'gridline' : 'axisline'}, svg); txt(svg, x(t), H - 6, fmt(t, true), '', 'middle'); }
+  rows.forEach((r, i) => {
+    const y = top + i * rowH + 7, h = 18;
+    txt(svg, left - 10, y + 13, label(r), 'lbl', 'end');
+    const g = s('g', {}, svg);
+    s('rect', {x: left, y: y - 6, width: W - left - right + 60, height: rowH - 2, class: 'hit'}, g);
+    hbar(g, x(0), x(r.value), y, h, color(r.key));
+    txt(svg, x(r.value) + 6, y + 13, fmt(r.value), 'val');
+    g.addEventListener('pointermove', e => showTip(e, r.label, r.tip));
+    g.addEventListener('pointerleave', hideTip);
+  });
+}
+
+// median dot + p10–p90 line per content type
+function rangeChart(el, vs, log) {
+  el.replaceChildren();
+  const rows = vs.filter(v => v.t_arrive.p50 != null);
+  const missing = vs.filter(v => v.t_arrive.p50 == null);
+  const W = el.clientWidth || 520, rowH = 34, left = 150, right = 70, top = 6;
+  const H = top + vs.length * rowH + 22;
+  const svg = s('svg', {viewBox: `0 0 ${W} ${H}`, height: H}, el);
+  const vals = rows.flatMap(v => [v.t_arrive.p10, v.t_arrive.p90]).filter(x => x > 0);
+  const lo = log ? Math.max(0.5, Math.min(...vals) * 0.7) : 0, hi = Math.max(...vals, 1) * (log ? 1.4 : 1.05);
+  const lin = niceTicks(hi, 4);
+  const thi = log ? hi : lin[lin.length - 1];
+  const x = v => left + (W - left - right) * (log ? (Math.log10(v) - Math.log10(lo)) / (Math.log10(thi) - Math.log10(lo)) : v / thi);
+  const ticks = log ? timeTicks(lo, hi, x) : thin(lin, x);
+  for (const t of ticks) { s('line', {x1: x(t), x2: x(t), y1: top, y2: H - 20, class: 'gridline'}, svg); txt(svg, x(t), H - 6, fmtS(t), '', 'middle'); }
+  vs.forEach((v, i) => {
+    const cy = top + i * rowH + 16;
+    txt(svg, left - 10, cy + 4, v.label, 'lbl', 'end');
+    if (v.t_arrive.p50 == null) { txt(svg, left + 4, cy + 4, 'never arrived', 'val'); return; }
+    const g = s('g', {}, svg);
+    s('rect', {x: left, y: cy - 15, width: W - left - right + 60, height: rowH - 2, class: 'hit'}, g);
+    s('line', {x1: x(v.t_arrive.p10), x2: x(v.t_arrive.p90), y1: cy, y2: cy, stroke: color(v.key), 'stroke-width': 2, 'stroke-linecap': 'round'}, g);
+    s('circle', {cx: x(v.t_arrive.p50), cy, r: 5.5, fill: color(v.key), stroke: 'var(--surface)', 'stroke-width': 2, class: 'mark'}, g);
+    txt(svg, x(v.t_arrive.p90) + 8, cy + 4, fmtS(v.t_arrive.p50), 'val');
+    g.addEventListener('pointermove', e => showTip(e, v.label, [[v.key, 'Median', fmtS(v.t_arrive.p50)], [null, 'Fastest 10%', fmtS(v.t_arrive.p10)], [null, 'Slowest 10%', fmtS(v.t_arrive.p90)], [null, 'Delivered', v.delivery_pct + '%']]));
+    g.addEventListener('pointerleave', hideTip);
+  });
+  void missing;
+}
+
+// multi-series line chart with crosshair; series = [{key,label,pts:[[x,y]]}]
+function lineChart(el, series, {xLog = false, yMax = 100, xFmt = fmtS, yFmt = v => v + '%', xLabel = '', yLog = false}) {
+  el.replaceChildren();
+  const W = el.clientWidth || 520, H = 250, left = 46, right = 16, top = 10, bottom = 34;
+  const svg = s('svg', {viewBox: `0 0 ${W} ${H}`, height: H}, el);
+  const xs = series.flatMap(sr => sr.pts.map(p => p[0]));
+  const ys = series.flatMap(sr => sr.pts.map(p => p[1])).filter(v => v != null);
+  if (!xs.length || !ys.length) { txt(svg, W / 2, H / 2, 'No data', 'lbl', 'middle'); return; }
+  const xmin = xLog ? Math.max(Math.min(...xs.filter(v => v > 0)), 0.5) : Math.min(...xs), xmax = Math.max(...xs);
+  const ylo = yLog ? Math.max(Math.min(...ys.filter(v => v > 0)) * 0.7, 0.1) : 0;
+  const yhi = yMax ?? Math.max(...ys) * 1.1;
+  const ytLin = niceTicks(yhi, 4);
+  const ytop = yLog ? yhi * 1.3 : ytLin[ytLin.length - 1];
+  const yt = yLog ? (yFmt === fmtS ? TIME_STEPS.filter(v => v >= ylo && v <= ytop) : logTicks(ylo, ytop)) : ytLin;
+  const X = v => left + (W - left - right) * (xLog ? (Math.log10(Math.max(v, xmin)) - Math.log10(xmin)) / (Math.log10(xmax) - Math.log10(xmin) || 1) : (v - xmin) / ((xmax - xmin) || 1));
+  const Y = v => top + (H - top - bottom) * (1 - (yLog ? (Math.log10(Math.max(v, ylo)) - Math.log10(ylo)) / (Math.log10(ytop) - Math.log10(ylo)) : v / ytop));
+  const ytShown = []; { let lastY = Infinity; for (const t of yt) { if (lastY - Y(t) >= 18) { ytShown.push(t); lastY = Y(t); } } }
+  for (const t of ytShown) { s('line', {x1: left, x2: W - right, y1: Y(t), y2: Y(t), class: t && !yLog ? 'gridline' : (yLog ? 'gridline' : 'axisline')}, svg); txt(svg, left - 6, Y(t) + 4, yFmt(t), '', 'end'); }
+  const xt = xLog ? (xFmt === fmtS ? timeTicks(xmin, xmax, X) : thin(logTicks(xmin, xmax), X)) : thin(niceTicks(xmax - xmin, 5).map(v => v + xmin), X);
+  for (const t of xt) txt(svg, X(t), H - bottom + 16, xFmt(t), '', 'middle');
+  if (xLabel) txt(svg, (left + W - right) / 2, H - 4, xLabel, '', 'middle');
+  for (const sr of series) {
+    const pts = sr.pts.filter(p => p[1] != null && (!xLog || p[0] > 0));
+    if (!pts.length) continue;
+    s('path', {d: pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(''), fill: 'none', stroke: color(sr.key), 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round'}, svg);
+    const last = pts[pts.length - 1];
+    s('circle', {cx: X(last[0]), cy: Y(last[1]), r: 4, fill: color(sr.key), stroke: 'var(--surface)', 'stroke-width': 2}, svg);
+    if (sr.markers) for (const p of pts) s('circle', {cx: X(p[0]), cy: Y(p[1]), r: 4, fill: color(sr.key), stroke: 'var(--surface)', 'stroke-width': 2}, svg);
+  }
+  const cross = s('line', {y1: top, y2: H - bottom, class: 'axisline', visibility: 'hidden'}, svg);
+  const hit = s('rect', {x: left, y: top, width: W - left - right, height: H - top - bottom, class: 'hit'}, svg);
+  const allX = [...new Set(series.flatMap(sr => sr.pts.map(p => p[0])))].sort((a, b) => a - b);
+  hit.addEventListener('pointermove', e => {
+    const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+    let best = allX[0], bd = Infinity;
+    for (const v of allX) { const d = Math.abs(X(v) - px); if (d < bd) { bd = d; best = v; } }
+    cross.setAttribute('x1', X(best)); cross.setAttribute('x2', X(best)); cross.setAttribute('visibility', 'visible');
+    showTip(e, xFmt(best), series.map(sr => {
+      let val = null; for (const p of sr.pts) { if (p[0] <= best + 1e-9) val = p[1]; else break; }
+      return [sr.key, sr.label, val == null ? '—' : yFmt(+(+val).toFixed(1))];
+    }));
+  });
+  hit.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); hideTip(); });
+}
+
+function legend(el, keys) {
+  el.replaceChildren();
+  for (const k of keys) {
+    const c = catalog.find(v => v.key === k);
+    const sp = document.createElement('span'); const i = document.createElement('i'); i.style.background = color(k);
+    sp.append(i, document.createTextNode(c ? c.label : k)); el.appendChild(sp);
+  }
+}
+
+// ---------------------------------------------------------------- page render
+function render() {
+  if (!result) return;
+  const vs = result.variants;
+  $('results').classList.remove('hide');
+  // insights
+  const ins = [];
+  const arrived = vs.filter(v => v.t_arrive.p50 != null).sort((a, b) => a.t_arrive.p50 - b.t_arrive.p50);
+  const cfg = result.config;
+  const net = cfg.radio === 'lora' ? `realistic LoRa (${meta.lora_presets[cfg.lora_preset].name}, ${cfg.km} km hops${cfg.terrain_db ? ', +' + cfg.terrain_db + ' dB terrain' : ''})`
+    : `${Math.round(cfg.loss * 100)}% loss per link at ${fmtN(cfg.rate_bps)} bps`;
+  ins.push(`${cfg.trials} trials per content type over 4 hops, ${net}${cfg.knockout ? `, relay ${cfg.knockout} failing at 15 s` : ''}.`);
+  if (arrived.length) ins.push(`Fastest: ${arrived[0].label}, the ranger has it after ${fmtS(arrived[0].t_arrive.p50)} (median). Slowest that arrived: ${arrived[arrived.length - 1].label}, ${fmtS(arrived[arrived.length - 1].t_arrive.p50)}.`);
+  const pair = (a, b) => { const A = vs.find(v => v.key === a), B = vs.find(v => v.key === b); return A && B ? [A, B] : null; };
+  for (const [a, b, what] of [['audio', 'audio_raw', 'audio'], ['image', 'image_raw', 'image']]) {
+    const p = pair(a, b); if (!p) continue;
+    const [c, r] = p;
+    ins.push(r.t_arrive.p50 && c.t_arrive.p50
+      ? `Compressing the ${what} (${fmtB(r.bytes)} → ${fmtB(c.bytes)}) makes it arrive ${Math.round(r.t_arrive.p50 / c.t_arrive.p50)}× faster (${fmtS(r.t_arrive.p50)} → ${fmtS(c.t_arrive.p50)}).`
+      : `Uncompressed ${what} (${fmtB(r.bytes)}) was delivered in ${r.delivery_pct}% of trials; compressed (${fmtB(c.bytes)}) in ${c.delivery_pct}%.`);
+  }
+  const avgLoss = vs.reduce((a, v) => a + v.frame_loss_pct, 0) / vs.length;
+  const allIntact = vs.every(v => v.intact_pct === 100);
+  ins.push(`About ${avgLoss.toFixed(0)}% of radio frames were lost on the air; ${allIntact ? 'retransmissions and parity still delivered every content type intact in every trial.' : 'some content did not make it: ' + vs.filter(v => v.intact_pct < 100).map(v => `${v.label} ${v.intact_pct}% intact`).join(', ') + '.'}`);
+  const worstCause = {}; vs.forEach(v => Object.entries(v.lost_by).forEach(([k, n]) => worstCause[k] = (worstCause[k] || 0) + n));
+  const wc = Object.entries(worstCause).sort((a, b) => b[1] - a[1])[0];
+  if (wc) ins.push(`Most common reason a frame was lost: ${CAUSE[wc[0]] || wc[0]}.`);
+  $('insights').replaceChildren(...ins.map(t => { const li = document.createElement('li'); li.textContent = t; return li; }));
+
+  // cards
+  $('cards').replaceChildren(...vs.map(v => {
+    const d = document.createElement('div'); d.className = 'card';
+    d.innerHTML = `<div class="t"><i style="background:${color(v.key)}"></i><span></span></div><div class="n"></div>
+      <div class="big">${v.t_arrive.p50 == null ? 'never' : fmtS(v.t_arrive.p50)} <small>median</small></div>
+      <div class="rows"><span>Size</span><b>${fmtB(v.bytes)} · ${v.packets} pkts</b>
+      <span>Delivered intact</span><b class="${v.intact_pct === 100 ? 'ok' : 'bad'}">${v.intact_pct}%</b>
+      <span>Frames lost</span><b>${v.frame_loss_pct}%</b>
+      <span>Resends / trial</span><b>${fmtN(v.resends)}</b>
+      <span>Bytes on air</span><b>${fmtB(v.air_bytes)} (${v.overhead_x}×)</b></div>`;
+    d.querySelector('.t span').textContent = v.label; d.querySelector('.n').textContent = v.note;
+    return d;
+  }));
+
+  rangeChart($('rangeChart'), vs, rangeLog);
+  legend($('curveLegend'), vs.map(v => v.key));
+  lineChart($('curveChart'), vs.map(v => ({key: v.key, label: v.label, pts: result.grid.map((t, i) => [t, v.curve[i]])})), {xLog: curveLog, xLabel: 'time since send'});
+
+  barChart($('lossChart'), vs.map(v => ({key: v.key, label: v.label, value: v.frame_loss_pct,
+    tip: [[v.key, 'Frames lost', v.frame_loss_pct + '%'], [null, 'Lost / sent per trial', `${fmtN(v.frames_lost)} / ${fmtN(v.frames)}`], [null, 'Resends per trial', fmtN(v.resends)]]})),
+    {fmt: (n, axis) => (axis ? n : n.toFixed(1)) + '%'});
+  barChart($('intactChart'), vs.map(v => ({key: v.key, label: v.label, value: v.intact_pct,
+    tip: [[v.key, 'Delivered intact', v.intact_pct + '%'], [null, 'Chunks that reached ranger', v.received_pct + '%'], [null, 'Confirmed (median)', fmtS(v.t_confirm_p50)]]})),
+    {max: 100, fmt: (n, axis) => (axis ? n : n.toFixed(0)) + '%'});
+  barChart($('overheadChart'), vs.map(v => ({key: v.key, label: v.label, value: v.overhead_x,
+    tip: [[v.key, 'Bytes on air', fmtB(v.air_bytes)], [null, 'Useful bytes', fmtB(v.bytes)], [null, 'Ratio', v.overhead_x + '×']]})),
+    {fmt: (n, axis) => (axis ? n : n.toFixed(1)) + '×'});
+  causeTable(vs);
+  summaryTable(vs);
+  trialTable();
+  if (result.sweep) renderSweep(result.sweep);
+}
+
+function causeTable(vs) {
+  const causes = [...new Set(vs.flatMap(v => Object.keys(v.lost_by)))];
+  const el = $('causeTable'); el.replaceChildren();
+  if (!causes.length) { el.innerHTML = '<div class="empty">No frames were lost.</div>'; return; }
+  const max = Math.max(...vs.flatMap(v => causes.map(c => v.lost_by[c] || 0)), 1e-9);
+  const t = document.createElement('table'); t.className = 'heat';
+  const hr = t.insertRow(); const h0 = document.createElement('th'); h0.textContent = 'Content'; hr.appendChild(h0);
+  causes.forEach(c => { const th = document.createElement('th'); th.className = 'num'; th.textContent = CAUSE[c] || c; hr.appendChild(th); });
+  for (const v of vs) {
+    const r = t.insertRow(); const c0 = r.insertCell();
+    c0.innerHTML = `<span class="k" style="background:${color(v.key)}"></span>`; c0.appendChild(document.createTextNode(v.label));
+    for (const c of causes) {
+      const n = v.lost_by[c] || 0, td = r.insertCell(); td.className = 'c';
+      const step = n === 0 ? -1 : Math.min(4, Math.floor(4.999 * n / max));
+      if (step >= 0) { td.style.background = `var(--seq-${step})`; td.style.color = `var(--seq-ink-${step})`; }
+      td.textContent = n ? n.toFixed(1) : '·';
+    }
+  }
+  el.appendChild(t);
+}
+
+const SUMMARY_COLS = [['label', 'Content'], ['bytes', 'Size (B)'], ['packets', 'Packets'], ['t_first_p50', 'First chunk (s)'], ['t50', 'Has everything p50 (s)'],
+  ['t90', 'p90 (s)'], ['t_confirm_p50', 'Confirmed p50 (s)'], ['delivery_pct', 'Delivered %'], ['intact_pct', 'Intact %'], ['frame_loss_pct', 'Frames lost %'],
+  ['resends', 'Resends'], ['parity', 'Parity fixes'], ['nacks', 'NACKs'], ['air_bytes', 'Bytes on air'], ['overhead_x', 'Air ÷ useful'], ['goodput_bps', 'Goodput (bps)']];
+function summaryTable(vs) {
+  const t = document.createElement('table'), hr = t.insertRow();
+  SUMMARY_COLS.forEach(([k, h], i) => { const th = document.createElement('th'); th.textContent = h; if (i) th.className = 'num'; hr.appendChild(th); });
+  for (const v of vs) {
+    const r = t.insertRow(), row = {...v, t50: v.t_arrive.p50, t90: v.t_arrive.p90};
+    SUMMARY_COLS.forEach(([k], i) => {
+      const td = r.insertCell();
+      if (!i) { td.innerHTML = `<span class="k" style="background:${color(v.key)}"></span>`; td.appendChild(document.createTextNode(v.label)); }
+      else { td.className = 'num'; td.textContent = fmtN(row[k]); }
+    });
+  }
+  $('summaryTable').replaceChildren(t);
+}
+
+const TRIAL_COLS = [['variant', 'Content'], ['seed', 'Seed'], ['state', 'Result'], ['t_first', 'First chunk (s)'], ['t_arrive', 'Has everything (s)'], ['t_confirm', 'Confirmed (s)'],
+  ['received_pct', 'Chunks received %'], ['frames', 'Frames'], ['frames_lost', 'Lost'], ['frame_loss_pct', 'Lost %'], ['resends', 'Resends'], ['parity', 'Parity'],
+  ['nacks', 'NACKs'], ['reroutes', 'Reroutes'], ['air_bytes', 'Bytes on air'], ['goodput_bps', 'Goodput (bps)']];
+function trialTable() {
+  const f = $('trialFilter').value;
+  let rows = result.trials.filter(r => !f || r.variant === f);
+  const {k, dir} = trialSort;
+  rows = rows.slice().sort((a, b) => { const x = a[k], y = b[k]; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * dir; });
+  const t = document.createElement('table'), hr = t.insertRow();
+  TRIAL_COLS.forEach(([key, h], i) => {
+    const th = document.createElement('th'); th.textContent = h + (k === key ? (dir > 0 ? ' ↑' : ' ↓') : ''); if (i > 2) th.className = 'num';
+    th.onclick = () => { trialSort = {k: key, dir: k === key ? -dir : 1}; trialTable(); }; hr.appendChild(th);
+  });
+  for (const r of rows.slice(0, 1000)) {
+    const tr = t.insertRow();
+    TRIAL_COLS.forEach(([key], i) => {
+      const td = tr.insertCell();
+      if (key === 'variant') { const c = catalog.find(v => v.key === r.variant); td.innerHTML = `<span class="k" style="background:${color(r.variant)}"></span>`; td.appendChild(document.createTextNode(c.label)); }
+      else if (key === 'state') { td.textContent = r.state; td.className = r.intact ? 'ok' : 'bad'; }
+      else { td.className = 'num'; td.textContent = fmtN(r[key]); }
+    });
+  }
+  $('trialTable').replaceChildren(t);
+}
+
+function renderSweep(sw) {
+  $('sweepOut').classList.remove('hide');
+  legend($('sweepLegend'), sw.variants);
+  const unit = sw.unit === '%' ? '%' : ' ' + sw.unit;
+  const xf = v => (Math.round(v * 10) / 10) + unit;
+  $('sweepQ1').textContent = `Median trial, by ${sw.label.toLowerCase()} (log scale)`;
+  const allFull = sw.points.every(p => p.variants.every(v => v.delivery_pct === 100));
+  $('sweepQ2').textContent = `Share of trials delivered intact, by ${sw.label.toLowerCase()}` +
+    (allFull ? ' (every content type stayed at 100%, so the lines sit on top of each other)' : '');
+  const series = f => sw.variants.map(k => ({key: k, label: catalog.find(c => c.key === k).label, markers: true,
+    pts: sw.points.map(p => { const v = p.variants.find(x => x.key === k); return [p.x, f(v)]; })}));
+  lineChart($('sweepTime'), series(v => v.t_p50), {yMax: null, yLog: true, xFmt: xf, yFmt: fmtS, xLabel: sw.label});
+  lineChart($('sweepDeliv'), series(v => v.delivery_pct), {yMax: 100, xFmt: xf, xLabel: sw.label});
+}
+
+// ---------------------------------------------------------------- controls
+function seg(id, cb) {
+  $(id).querySelectorAll('button').forEach(b => b.onclick = () => {
+    $(id).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); cb(b.dataset.v);
+  });
+}
+seg('radioSeg', v => { radio = v; document.querySelectorAll('.lora-only').forEach(e => e.classList.toggle('hide', v !== 'lora'));
+  document.querySelectorAll('.simple-only').forEach(e => e.classList.toggle('hide', v === 'lora')); });
+seg('scaleSeg', v => { rangeLog = v === 'log'; render(); });
+seg('xSeg', v => { curveLog = v === 'log'; render(); });
+$('loss').oninput = e => $('lossOut').textContent = e.target.value + '%';
+$('km').oninput = e => $('kmOut').textContent = (+e.target.value).toFixed(1) + ' km';
+$('terrain').oninput = e => $('terrOut').textContent = e.target.value + ' dB';
+$('trialFilter').onchange = trialTable;
+
+function request(extra = {}) {
+  return {variants: catalog.map(c => c.key).filter(k => selected.has(k)), radio, loss: $('loss').value / 100, rate: $('rate').value,
+    preset: $('preset').value, km: +$('km').value, terrain_db: +$('terrain').value, trials: +$('trials').value, seed: +$('seed').value,
+    knockout: $('ko').value || null, ...extra};
+}
+
+async function runJob(body, label) {
+  const btns = [$('runBtn'), $('sweepBtn')]; btns.forEach(b => b.disabled = true);
+  $('bar').style.width = '0%'; $('status').textContent = label + '…';
+  document.querySelectorAll('.panel, .cards, .insights').forEach(e => e.style.opacity = 0.55);  // keep the frame while refetching
+  try {
+    const r = await fetch('/api/lab/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    if (!r.ok) throw new Error(await r.text());
+    const {job} = await r.json();
+    const t0 = performance.now();
+    while (true) {
+      await new Promise(res => setTimeout(res, 250));
+      const j = await (await fetch('/api/lab/job/' + job)).json();
+      $('bar').style.width = (j.progress * 100) + '%';
+      $('status').textContent = `${label}: ${j.stage} ${(j.progress * 100).toFixed(0)}%`;
+      if (j.status === 'done') { $('status').textContent = `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s.`; return j.result; }
+      if (j.status === 'error') throw new Error(j.error);
+    }
+  } finally {
+    btns.forEach(b => b.disabled = false);
+    document.querySelectorAll('.panel, .cards, .insights').forEach(e => e.style.opacity = 1);
+  }
+}
+
+$('runBtn').onclick = async () => {
+  if (!selected.size) { $('status').textContent = 'Pick at least one thing to send.'; return; }
+  try {
+    const slow = ['audio_raw', 'image_raw'].some(k => selected.has(k)) && radio === 'lora';
+    result = await runJob(request(), slow ? 'Simulating (uncompressed media over LoRa takes a while)' : 'Simulating');
+    $('sweepOut').classList.add('hide');
+    const opts = [['', 'All content']].concat(result.variants.map(v => [v.key, v.label]));
+    $('trialFilter').replaceChildren(...opts.map(([k, l]) => { const o = document.createElement('option'); o.value = k; o.textContent = l; return o; }));
+    render();
+  } catch (e) { $('status').textContent = 'Error: ' + e.message; }
+};
+$('sweepBtn').onclick = async () => {
+  try {
+    const body = request({sweep: $('sweepParam').value, sweep_trials: +$('sweepTrials').value});
+    const res = await runJob(body, 'Running experiment + sweep');
+    result = res; render();
+  } catch (e) { $('status').textContent = 'Error: ' + e.message; }
+};
+function download(name, text, type) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click();
+}
+$('csvBtn').onclick = () => {
+  const keys = TRIAL_COLS.map(c => c[0]).concat(['intact', 'useful_bytes', 'overhead_x', 'acks', 'acks_lost']);
+  const lines = [keys.join(',')].concat(result.trials.map(r => keys.map(k => r[k] ?? '').join(',')));
+  download('trail-sos-lab.csv', lines.join('\n'), 'text/csv');
+};
+$('jsonBtn').onclick = () => download('trail-sos-lab.json', JSON.stringify(result, null, 2), 'application/json');
+let resizeT; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(render, 150); });
+
+(async function init() {
+  meta = await (await fetch('/api/lab/variants')).json();
+  catalog = meta.variants;
+  $('variantChips').replaceChildren(...catalog.map(v => {
+    const l = document.createElement('label'); l.className = 'chip' + (selected.has(v.key) ? ' on' : '');
+    l.title = v.note;
+    l.innerHTML = `<input type="checkbox"><i class="key" style="background:${color(v.key)}"></i><span></span><small>${fmtB(v.bytes)}</small>`;
+    l.querySelector('span').textContent = v.label;
+    const cb = l.querySelector('input'); cb.checked = selected.has(v.key);
+    cb.onchange = () => { cb.checked ? selected.add(v.key) : selected.delete(v.key); l.classList.toggle('on', cb.checked); };
+    return l;
+  }));
+  $('preset').replaceChildren(...Object.entries(meta.lora_presets).map(([k, p]) => { const o = document.createElement('option'); o.value = k; o.textContent = `${p.name} · ${p.bitrate.toLocaleString()} bps`; if (k === 'long_fast') o.selected = true; return o; }));
+  $('sweepParam').replaceChildren(...Object.entries(meta.sweeps).map(([k, sw]) => { const o = document.createElement('option'); o.value = k; o.textContent = sw.label; return o; }));
+  const q = new URLSearchParams(location.search);
+  if (q.get('radio') === 'lora') $('radioSeg').querySelector('[data-v=lora]').click();
+  if (q.get('raw') === '1') document.querySelectorAll('#variantChips input').forEach((cb, i) => { if (!cb.checked && catalog[i].key.endsWith('_raw')) { cb.checked = true; cb.onchange(); } });
+  if (q.get('trials')) $('trials').value = q.get('trials');
+  if (q.get('sweep')) { $('sweepParam').value = q.get('sweep'); $('sweepBtn').click(); } else $('runBtn').click();
+})();
+</script>
+</body>
+</html>

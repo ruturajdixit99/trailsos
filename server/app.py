@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,7 @@ from pydantic import BaseModel
 from ai.provider import get_provider
 from media import voice
 from mesh.sim import RATE_PRESETS, MeshSim, SimConfig, demo_topology
+from mesh.lab import SWEEPS, VARIANT_BY_KEY, LabConfig, run_experiment, run_sweep, variant_catalog
 from mesh.ledger import NetworkLedger
 from mesh.lora import PRESETS as LORA_PRESETS
 from mesh.status import StatusTracker
@@ -128,7 +130,90 @@ app.mount("/samples", StaticFiles(directory=ROOT / "samples"), name="samples")
 
 @app.get("/")
 async def index():
+    """Home: the Transfer Lab (compare speed and loss of text / audio / image)."""
+    return FileResponse(STATIC / "lab.html")
+
+
+@app.get("/demo")
+async def demo():
+    """Live phone-to-phone demo of a single SOS."""
     return FileResponse(STATIC / "index.html")
+
+
+# ------------------------------------------------------------------ transfer lab
+class LabRequest(BaseModel):
+    variants: list[str] = ["text", "audio", "image", "sos"]
+    radio: str = "simple"
+    loss: float = 0.2
+    rate: str = "long_range"
+    preset: str = "long_fast"
+    km: float = 1.8
+    terrain_db: float = 0.0
+    trials: int = 30
+    seed: int = 0
+    knockout: Optional[str] = None
+    deadline_s: float = 3600.0
+    sweep: Optional[str] = None         # loss | km | terrain_db
+    sweep_trials: int = 12
+
+
+LAB_JOBS: dict[str, dict] = {}
+
+
+def _lab_config(req: LabRequest) -> LabConfig:
+    return LabConfig(variants=tuple(req.variants), radio=req.radio, loss=req.loss,
+                     rate_bps=RATE_PRESETS.get(req.rate, 1000.0), lora_preset=req.preset, km=req.km,
+                     terrain_db=req.terrain_db, trials=req.trials, seed=req.seed, knockout=req.knockout or None,
+                     deadline_s=req.deadline_s)
+
+
+@app.get("/lab")
+async def lab_page():
+    return FileResponse(STATIC / "lab.html")
+
+
+@app.get("/api/lab/variants")
+async def lab_variants():
+    return {"variants": await asyncio.to_thread(variant_catalog), "sweeps": SWEEPS,
+            "lora_presets": {k: {"name": p.name, "bitrate": round(p.bitrate)} for k, p in LORA_PRESETS.items()},
+            "rate_presets": RATE_PRESETS}
+
+
+@app.post("/api/lab/run")
+async def lab_run(req: LabRequest):
+    bad = [v for v in req.variants if v not in VARIANT_BY_KEY]
+    if bad or not req.variants:
+        raise HTTPException(400, f"unknown or empty variants: {bad}")
+    if not 1 <= req.trials <= 300 or not 0 <= req.loss < 1 or req.sweep not in (None, *SWEEPS):
+        raise HTTPException(400, "trials 1-300, loss in [0,1), sweep one of " + ", ".join(SWEEPS))
+    job_id = uuid.uuid4().hex[:10]
+    job = LAB_JOBS[job_id] = {"status": "running", "progress": 0.0, "stage": "experiment", "result": None,
+                              "error": None}
+    cfg = _lab_config(req)
+
+    def work():
+        try:
+            def prog(f, stage):
+                job["progress"], job["stage"] = round(f, 3), stage
+            result = run_experiment(cfg, lambda f: prog(f * (0.7 if req.sweep else 1.0), "experiment"))
+            if req.sweep:
+                result["sweep"] = run_sweep(cfg, req.sweep, req.sweep_trials,
+                                            lambda f: prog(0.7 + 0.3 * f, "sweep"))
+            job["result"], job["status"], job["progress"] = result, "done", 1.0
+        except Exception as e:  # noqa: BLE001
+            log.exception("lab job failed")
+            job["status"], job["error"] = "error", str(e)
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"job": job_id}
+
+
+@app.get("/api/lab/job/{job_id}")
+async def lab_job(job_id: str):
+    job = LAB_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(404, "no such job")
+    return job
 
 
 @app.get("/api/config")

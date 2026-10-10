@@ -222,7 +222,7 @@ def _drive_app(body):
     appmod.hub.handshake = "tracing disabled"
     states, kinds = [], set()
     with TestClient(appmod.app) as client:
-        assert client.get("/").status_code == 200
+        assert client.get("/").status_code == 200 and client.get("/demo").status_code == 200
         assert client.get("/api/config").json()["nodes"]
         with client.websocket_connect("/ws") as ws:
             r = client.post("/api/sos", json=body)
@@ -267,3 +267,27 @@ def test_api_lora_mode_streams_ledger():
     assert led["totals"]["frames_on_air"] == led["totals"]["frames_delivered"] + led["totals"]["frames_lost"]
     assert led["links"] and led["chunks"]
     assert "received" in kinds
+
+
+def test_lab_api_job_roundtrip():
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from server import app as appmod
+    with TestClient(appmod.app) as client:
+        assert "Transfer Lab" in client.get("/").text
+        cat = client.get("/api/lab/variants").json()
+        assert {v["key"] for v in cat["variants"]} >= {"text", "audio", "image"}
+        assert client.post("/api/lab/run", json={"variants": ["nope"]}).status_code == 400
+        job = client.post("/api/lab/run", json={"variants": ["text", "image"], "trials": 5, "sweep": "loss",
+                                                "sweep_trials": 3}).json()["job"]
+        for _ in range(200):
+            j = client.get(f"/api/lab/job/{job}").json()
+            if j["status"] != "running":
+                break
+            time.sleep(0.05)
+        assert j["status"] == "done", j
+        r = j["result"]
+        assert [v["key"] for v in r["variants"]] == ["text", "image"] and len(r["trials"]) == 10
+        assert len(r["sweep"]["points"]) == 6
