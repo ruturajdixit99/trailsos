@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trail SOS</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #171e26; --line: #2a3542; --text: #e6edf3; --muted: #8b98a5;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --info: #58a6ff; --e: #bc8cff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 12px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 20px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  main { display: grid; grid-template-columns: 300px 1fr 300px; gap: 16px; padding: 16px; align-items: start; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .phone { background: #000; border-radius: 40px; padding: 12px; border: 2px solid #333; box-shadow: 0 10px 40px #0008; }
+  .screen { background: #f5f5f7; color: #111; border-radius: 30px; min-height: 600px; padding: 14px 14px 18px; overflow: hidden; position: relative; }
+  .notch { width: 110px; height: 22px; background: #000; border-radius: 0 0 14px 14px; margin: -14px auto 8px; }
+  .statusbar { display: flex; justify-content: space-between; font-size: 11px; color: #555; margin-bottom: 8px; }
+  .screen h2 { margin: 4px 0 10px; font-size: 18px; }
+  .card { background: #fff; border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; box-shadow: 0 1px 2px #0001; }
+  .card h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #666; display: flex; justify-content: space-between; }
+  .pill { display: inline-block; border-radius: 99px; padding: 1px 8px; font-size: 11px; font-weight: 600; }
+  .pill.unv { background: #fff3cd; color: #8a6100; }
+  .pill.ai { background: #fde2e1; color: #a1271f; }
+  .pill.ok { background: #dafbe1; color: #116329; }
+  .pill.wait { background: #eee; color: #666; }
+  .badge { text-align: center; font-weight: 700; padding: 10px; border-radius: 14px; margin-bottom: 10px; font-size: 15px; }
+  .badge.queued, .badge.idle { background: #e5e7eb; color: #374151; }
+  .badge.in_transit { background: #dbeafe; color: #1e40af; }
+  .badge.partial { background: #fef3c7; color: #92400e; }
+  .badge.delivered { background: #dcfce7; color: #166534; }
+  .badge.failed { background: #fee2e2; color: #991b1b; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; }
+  .kv span:nth-child(odd) { color: #666; }
+  .bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .bar > div { height: 100%; background: #2563eb; transition: width .3s; }
+  .bar.done > div { background: #16a34a; }
+  img.thumb { width: 100%; image-rendering: pixelated; border-radius: 8px; display: block; }
+  .muted { color: #777; font-size: 12px; }
+  button.sos { width: 100%; padding: 16px; font-size: 18px; font-weight: 800; color: #fff; background: #dc2626; border: 0; border-radius: 16px; cursor: pointer; }
+  button.sos:disabled { background: #999; cursor: default; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+  .panel h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 16px; align-items: end; }
+  .controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .controls input[type=range] { width: 100%; }
+  select, input[type=number], .controls button { background: #0d1117; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; }
+  .controls button { cursor: pointer; }
+  .controls button.danger { border-color: var(--bad); color: var(--bad); }
+  svg { width: 100%; height: auto; display: block; }
+  .log { height: 210px; overflow: auto; font: 12px/1.45 ui-monospace, Consolas, monospace; color: var(--muted); }
+  .log .lost { color: var(--bad); } .log .ok { color: var(--ok); } .log .warn { color: var(--warn); } .log .info { color: var(--info); }
+  .stats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+  .stats b { color: var(--text); font-size: 16px; display: block; }
+  .stats div { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🥾 Trail SOS</h1>
+  <span class="sub">Voice + photo SOS over a simulated LoRa mesh · CHRP Off-Grid track</span>
+  <span class="sub" id="meta"></span>
+</header>
+<main>
+  <!-- Hiker phone -->
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="statusbar"><span>No Service</span><span>LoRa ●</span><span>🔋 41%</span></div>
+    <h2>Hiker</h2>
+    <div class="card">
+      <h3>Photo <span class="muted">(stays on phone)</span></h3>
+      <img src="/samples/trail_photo.jpg" class="thumb" alt="sample photo">
+    </div>
+    <div class="card">
+      <h3>Voice note <span class="muted">5 s sample</span></h3>
+      <audio controls src="/samples/sos_voice.wav" style="width:100%"></audio>
+    </div>
+    <div class="card" id="hikerAi"><h3>On-device AI</h3><div class="muted">Press Send SOS</div></div>
+    <button class="sos" id="sendBtn">SEND SOS</button>
+    <div class="badge idle" id="hikerBadge" style="margin-top:10px">Not sent</div>
+  </div></div>
+
+  <!-- Middle: controls + map + log -->
+  <div>
+    <div class="panel">
+      <h3>Demo controls</h3>
+      <div class="controls">
+        <label>Packet loss per link: <span id="lossVal">20%</span>
+          <input type="range" id="loss" min="0" max="50" value="20"></label>
+        <label>Data rate preset
+          <select id="rate"><option value="long_range">Long range · 1,000 bps</option>
+            <option value="fast">Fast · ~22,000 bps</option></select></label>
+        <label>Sim speed: <span id="speedVal">10×</span>
+          <input type="range" id="speed" min="1" max="60" value="10"></label>
+        <label>Seed <input type="number" id="seed" value="7"></label>
+        <label>Knock out node mid-send
+          <select id="ko"><option value="">— none —</option><option>C</option><option>B</option><option>D</option><option>E</option></select></label>
+        <label>&nbsp;<span style="display:flex;gap:6px">
+          <button class="danger" id="koNow">Knock out now</button><button id="restore">Restore all</button></span></label>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Mesh map <span id="simT" style="float:right;text-transform:none"></span></h3>
+      <svg id="map" viewBox="-0.5 -0.6 5 2.1"></svg>
+      <div class="stats" style="margin-top:8px">
+        <div><b id="sBytes">0</b>bytes on air</div>
+        <div><b id="sResends">0</b>resends</div>
+        <div><b id="sLoss">–</b>observed loss</div>
+        <div><b id="sParity">0</b>parity rebuilds</div>
+        <div><b id="sReroute">0</b>reroutes</div>
+        <div><b id="sRate">–</b>effective bps</div>
+      </div>
+    </div>
+    <div class="panel"><h3>Event log</h3><div class="log" id="log"></div></div>
+  </div>
+
+  <!-- Ranger phone -->
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="statusbar"><span>Ranger Stn</span><span>LoRa ●</span><span>🔋 88%</span></div>
+    <h2>Ranger</h2>
+    <div class="badge idle" id="badge">Waiting for messages</div>
+    <div class="card">
+      <div class="kv">
+        <span>Message</span><span id="rMsg">–</span>
+        <span>ETA</span><span id="rEta">–</span>
+        <span>Route</span><span id="rRoute">–</span>
+        <span>Resends</span><span id="rResends">–</span>
+      </div>
+    </div>
+    <div class="card"><h3>Transcript <span id="tPill"></span></h3><div id="rTranscript" class="muted">not arrived</div></div>
+    <div class="card"><h3>Photo caption <span id="cPill"></span></h3><div id="rCaption" class="muted">not arrived</div></div>
+    <div class="card"><h3>Voice <span id="aCount" class="muted"></span></h3>
+      <div class="bar" id="aBar"><div style="width:0"></div></div><div id="rAudio" class="muted" style="margin-top:6px">not arrived</div></div>
+    <div class="card"><h3>Thumbnail <span id="thCount" class="muted"></span></h3>
+      <div class="bar" id="thBar"><div style="width:0"></div></div><div id="rThumb" class="muted" style="margin-top:6px">not arrived</div></div>
+    <div class="card" id="rebuildCard" style="display:none"><h3>Sketch <span class="pill ai">AI reconstruction</span></h3>
+      <img id="rRebuild" class="thumb" alt="AI reconstruction">
+      <div class="muted">AI reconstruction, not the real photo. Generated on the ranger's phone from the caption.</div></div>
+  </div></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let cfg = null, nodes = {}, msgId = null, rateBps = 1000, speed = 10, shownMedia = {};
+
+$('loss').oninput = e => $('lossVal').textContent = e.target.value + '%';
+$('speed').oninput = e => { $('speedVal').textContent = e.target.value + '×'; fetch('/api/speed/' + e.target.value, {method: 'POST'}); };
+
+async function init() {
+  cfg = await (await fetch('/api/config')).json();
+  $('meta').textContent = `AI: ${cfg.provider} · voice: ${cfg.codec} · PRISM: ${cfg.tracing}`;
+  drawMap();
+  connect();
+}
+
+function drawMap() {
+  const svg = $('map'); svg.innerHTML = '';
+  const ns = 'http://www.w3.org/2000/svg';
+  const el = (t, a) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  cfg.nodes.forEach(n => nodes[n.name] = n);
+  const g = el('g', {id: 'links'}); svg.appendChild(g);
+  cfg.links.forEach(([a, b]) => g.appendChild(el('line', {id: `l-${[a,b].sort().join('-')}`, x1: nodes[a].x, y1: nodes[a].y,
+    x2: nodes[b].x, y2: nodes[b].y, stroke: '#2a3542', 'stroke-width': 0.03})));
+  svg.appendChild(el('g', {id: 'pkts'}));
+  cfg.nodes.forEach(n => {
+    const grp = el('g', {id: 'n-' + n.name});
+    const col = n.name === 'Hiker' ? '#f85149' : n.name === 'Ranger' ? '#3fb950' : n.name === 'E' ? '#bc8cff' : '#58a6ff';
+    grp.appendChild(el('circle', {cx: n.x, cy: n.y, r: 0.16, fill: '#0d1117', stroke: col, 'stroke-width': 0.04}));
+    const t = el('text', {x: n.x, y: n.y + 0.05, 'text-anchor': 'middle', 'font-size': 0.13, fill: '#e6edf3'});
+    t.textContent = n.name === 'Hiker' ? '🥾' : n.name === 'Ranger' ? '🏕' : n.name; grp.appendChild(t);
+    const lbl = el('text', {x: n.x, y: n.y + 0.34, 'text-anchor': 'middle', 'font-size': 0.11, fill: '#8b98a5'});
+    lbl.textContent = n.name; grp.appendChild(lbl);
+    const q = el('text', {id: 'q-' + n.name, x: n.x + 0.2, y: n.y - 0.16, 'font-size': 0.1, fill: '#d29922'}); grp.appendChild(q);
+    svg.appendChild(grp);
+  });
+}
+
+function animatePacket(ev) {
+  if (!nodes[ev.node] || !nodes[ev.peer]) return;
+  const ns = 'http://www.w3.org/2000/svg', a = nodes[ev.node], b = nodes[ev.peer];
+  const c = document.createElementNS(ns, 'circle');
+  const isAck = ev.kind === 'ack_sent', ctrl = ['e2e_ack', 'nack'].includes(ev.part);
+  c.setAttribute('r', isAck ? 0.035 : 0.06);
+  c.setAttribute('fill', isAck ? '#3fb95088' : ctrl ? '#3fb950' : ev.parity ? '#bc8cff' : '#58a6ff');
+  $('pkts').appendChild(c);
+  const dur = Math.max(120, (ev.size * 8 / rateBps) * 1000 / speed);
+  const t0 = performance.now();
+  (function step(now) {
+    const k = Math.min(1, (now - t0) / dur);
+    c.setAttribute('cx', a.x + (b.x - a.x) * k); c.setAttribute('cy', a.y + (b.y - a.y) * k);
+    if (k < 1) requestAnimationFrame(step); else c.remove();
+  })(t0);
+}
+
+function flashLost(ev) {
+  const a = nodes[ev.node], b = nodes[ev.peer]; if (!a || !b) return;
+  const ns = 'http://www.w3.org/2000/svg', t = document.createElementNS(ns, 'text');
+  t.setAttribute('x', (a.x + b.x) / 2); t.setAttribute('y', (a.y + b.y) / 2 - 0.08);
+  t.setAttribute('font-size', 0.16); t.setAttribute('fill', '#f85149'); t.setAttribute('text-anchor', 'middle');
+  t.textContent = ev.detail && ev.detail.reason === 'crc_fail' ? '✗ CRC' : '✗';
+  $('pkts').appendChild(t); setTimeout(() => t.remove(), 700);
+}
+
+function logLine(ev) {
+  if (ev.kind === 'ack_sent' || ev.kind === 'acked') return;
+  const cls = {lost: 'lost', dropped: 'lost', message_failed: 'lost', node_down: 'lost', link_down: 'warn', rerouted: 'warn',
+    retried: 'warn', nack_sent: 'warn', parity_recovered: 'info', reassembled: 'ok', e2e_ack_received: 'ok',
+    message_complete: 'ok', e2e_ack_sent: 'ok'}[ev.kind] || '';
+  const what = ev.part ? `${ev.part}${ev.parity ? '-parity' : ''}${ev.index !== undefined ? '#' + ev.index : ''}` : '';
+  let extra = '';
+  if (ev.detail) {
+    if (ev.detail.reason) extra = ev.detail.reason;
+    else if (ev.detail.via) extra = 'via ' + ev.detail.via.join('→');
+    else if (ev.detail.missing) extra = 'missing ' + ev.detail.missing.join(',');
+    else if (ev.detail.path) extra = ev.detail.path.join('→');
+  }
+  const d = document.createElement('div'); d.className = cls;
+  d.textContent = `${ev.t.toFixed(1).padStart(6)}s ${ev.node}${ev.peer ? '→' + ev.peer : ''} ${ev.kind} ${what} ${extra}`;
+  const log = $('log'); log.appendChild(d);
+  while (log.childNodes.length > 400) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+function pill(labels) {
+  if (!labels) return '';
+  return labels.map(l => l === 'unverified' ? '<span class="pill unv">unverified</span>' : '<span class="pill ai">AI reconstruction</span>').join(' ');
+}
+const esc = s => s.replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+
+function render(m) {
+  const s = m.status, r = m.ranger || {};
+  speed = m.speed || speed;
+  $('simT').textContent = `sim t = ${m.sim_t.toFixed(1)} s`;
+  const b = $('badge');
+  b.className = 'badge ' + s.state;
+  b.textContent = s.state === 'delivered' ? 'Delivered ✓✓' : s.label;
+  const hb = $('hikerBadge');
+  hb.className = 'badge ' + s.state;
+  hb.textContent = s.state === 'delivered' ? 'Delivered ✓✓ (ranger confirmed)' : s.state === 'failed' ? 'NOT delivered: ' + s.reason
+    : s.state === 'queued' ? 'Queued' : 'Sending… not yet confirmed';
+  $('rMsg').textContent = s.msg_id;
+  $('rEta').textContent = s.state === 'delivered' ? 'done' : s.eta_s === null ? '—' : `~${s.eta_s.toFixed(0)} s (sim)`;
+  $('rRoute').textContent = (s.route || []).join(' → ') + (s.route_is_observed ? '' : ' (planned)');
+  $('rResends').textContent = `${s.resends} resends · ${s.parity_recoveries} parity · ${s.nacks} NACK`;
+  $('sBytes').textContent = s.bytes_on_air.toLocaleString(); $('sResends').textContent = s.resends;
+  $('sLoss').textContent = (s.observed_loss * 100).toFixed(0) + '%'; $('sParity').textContent = s.parity_recoveries;
+  $('sReroute').textContent = s.reroutes; $('sRate').textContent = Math.round(s.effective_rate_bps).toLocaleString();
+  for (const [part, el, pl] of [['transcript', 'rTranscript', 'tPill'], ['caption', 'rCaption', 'cPill']]) {
+    if (r[part]) { $(el).className = ''; $(el).innerHTML = `“${esc(r[part].text)}” <div class="muted">confidence ${(r[part].confidence * 100).toFixed(0)}%</div>`;
+      $(pl).innerHTML = r[part].labels.length ? pill(r[part].labels) : '<span class="pill ok">received</span>'; }
+  }
+  for (const [part, bar, cnt] of [['audio', 'aBar', 'aCount'], ['thumbnail', 'thBar', 'thCount']]) {
+    const p = (s.parts || {})[part]; if (!p) continue;
+    $(bar).firstElementChild.style.width = (100 * p.have / p.of) + '%';
+    $(bar).classList.toggle('done', p.done);
+    $(cnt).textContent = `${p.have}/${p.of} chunks`;
+  }
+  if (r.audio && !shownMedia.audio) { shownMedia.audio = 1;
+    $('rAudio').className = ''; $('rAudio').innerHTML = `<audio controls src="/api/media/${s.msg_id}/audio.wav" style="width:100%"></audio>
+      <div class="muted">${r.audio.codec}, ${r.audio.bytes} B for ${r.audio.seconds} s</div>`; }
+  if (r.thumbnail && !shownMedia.thumb) { shownMedia.thumb = 1;
+    $('rThumb').className = ''; $('rThumb').innerHTML = `<img class="thumb" src="/api/media/${s.msg_id}/thumbnail.png">
+      <div class="muted">Real photo data: ${r.thumbnail.size}, ${r.thumbnail.bytes} B</div>`; }
+  if (r.rebuild && !shownMedia.rebuild) { shownMedia.rebuild = 1;
+    $('rebuildCard').style.display = ''; $('rRebuild').src = `/api/media/${s.msg_id}/rebuild.png`; }
+  if (m.alive) for (const [n, up] of Object.entries(m.alive)) {
+    const g = $('n-' + n); if (g) g.style.opacity = up ? 1 : 0.25;
+  }
+  if (m.queues) for (const [n, q] of Object.entries(m.queues)) { const t = $('q-' + n); if (t) t.textContent = q ? `▤${q}` : ''; }
+  if (s.route_is_observed) {
+    document.querySelectorAll('#links line').forEach(l => l.setAttribute('stroke', '#2a3542'));
+    for (let i = 0; i + 1 < s.route.length; i++) {
+      const l = $('l-' + [s.route[i], s.route[i + 1]].sort().join('-')); if (l) l.setAttribute('stroke', '#3fb95099');
+    }
+  }
+}
+
+function connect() {
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'start') {
+      msgId = m.msg_id; rateBps = m.config.rate_bps; shownMedia = {};
+      $('log').innerHTML = '';
+      $('hikerAi').innerHTML = '<h3>On-device AI</h3>' + Object.entries(m.sender_ai).map(([k, v]) =>
+        `<div style="margin-bottom:6px"><b>${k}</b> ${pill(v.labels)}<br>${esc(v.text)} <span class="muted">(${(v.confidence * 100).toFixed(0)}%)</span></div>`).join('') +
+        `<div class="muted">Payload: ${Object.entries(m.sizes).map(([k, v]) => `${k} ${v} B`).join(' · ')} (${m.codec})</div>`;
+      for (const id of ['rTranscript', 'rCaption', 'rAudio', 'rThumb']) { $(id).className = 'muted'; $(id).textContent = 'not arrived'; }
+      for (const id of ['tPill', 'cPill', 'aCount', 'thCount']) $(id).innerHTML = '';
+      for (const id of ['aBar', 'thBar']) { $(id).firstElementChild.style.width = 0; $(id).classList.remove('done'); }
+      $('rebuildCard').style.display = 'none';
+      cfg.nodes.forEach(n => $('n-' + n.name).style.opacity = 1);
+    } else if (m.type === 'tick') {
+      (m.events || []).forEach(ev => {
+        if (['sent', 'retried', 'ack_sent'].includes(ev.kind)) animatePacket(ev);
+        if (ev.kind === 'lost') flashLost(ev);
+        logLine(ev);
+      });
+      render(m);
+    } else if (m.type === 'done') {
+      $('sendBtn').disabled = false;
+      $('meta').textContent = `AI: ${cfg.provider} · voice: ${cfg.codec} · PRISM: ${m.tracing}` + (m.traces_queued ? ` · ${m.traces_queued} traces sent` : '');
+    }
+  };
+  ws.onclose = () => setTimeout(connect, 1000);
+}
+
+$('sendBtn').onclick = async () => {
+  $('sendBtn').disabled = true;
+  const body = {loss: $('loss').value / 100, rate: $('rate').value, seed: +$('seed').value, speed: +$('speed').value,
+                knockout: $('ko').value || null};
+  const r = await fetch('/api/sos', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  if (!r.ok) { alert(await r.text()); $('sendBtn').disabled = false; }
+};
+$('koNow').onclick = () => { const n = $('ko').value || 'C'; fetch(`/api/node/${n}/down`, {method: 'POST'}); };
+$('restore').onclick = () => ['B', 'C', 'D', 'E'].forEach(n => fetch(`/api/node/${n}/up`, {method: 'POST'}));
+init();
+</script>
+</body>
+</html>

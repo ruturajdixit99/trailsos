@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -78,13 +79,10 @@ class Hub:
 
 
 hub = Hub()
-app = FastAPI(title="Trail SOS")
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
-app.mount("/samples", StaticFiles(directory=ROOT / "samples"), name="samples")
 
 
-@app.on_event("startup")
-async def _startup():
+@asynccontextmanager
+async def lifespan(_app):
     def doctor():
         ok, msg = hub.tracer.handshake()
         hub.handshake = msg
@@ -93,6 +91,12 @@ async def _startup():
         threading.Thread(target=doctor, daemon=True).start()
     log.info("AI provider: %s | voice codec: %s", hub.provider.name,
              "codec2-1200" if voice.HAVE_CODEC2 else "opus fallback")
+    yield
+
+
+app = FastAPI(title="Trail SOS", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
+app.mount("/samples", StaticFiles(directory=ROOT / "samples"), name="samples")
 
 
 @app.get("/")
