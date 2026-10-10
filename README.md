@@ -59,6 +59,42 @@ copy .env.example .env      # optional: add PRISM / NicrronNinoo keys
 - **"Knock out node mid-send"** removes the chosen node once the ranger has received 4 chunks. **Knock out now** and **Restore all** do it by hand.
 - Seeds make every run repeatable.
 
+## Two radio models
+Pick one under **Radio model** on the page, or pass `--radio` to `scripts/simulate.py`.
+
+| | Simple (spec model) | Realistic LoRa |
+|---|---|---|
+| Airtime | bytes × 8 / rate | Semtech SX126x formula: spreading factor, bandwidth, coding rate, 16-symbol preamble, explicit header, CRC, low-data-rate optimisation. Checked against Semtech's calculator (56.58 ms test case) |
+| Presets | 1,000 / 21,875 bps | Meshtastic LongSlow, LongFast (default), MediumFast, ShortFast, ShortTurbo |
+| Why a frame is lost | fixed % per link (half arrive corrupted and are rejected by CRC) | **weak signal:** SNR after per-packet fading falls below the demodulation floor for that spreading factor<br>**collision:** an overlapping frame within 6 dB (capture effect)<br>**half-duplex:** the receiver was transmitting<br>**node down** |
+| Signal | n/a | 915 MHz, 22 dBm, log-distance path loss (exponent 3.6 for forested mountains), +terrain dB slider, 3 dB per-link shadowing (fixed per seed), 3 dB fading |
+| Links / routing | in range ≤ 1.6 units; shortest distance | usable if mean SNR is within 3 dB of the floor; routes by expected transmissions (ETX) |
+| Channel access | n/a | listen-before-talk with random backoff; random jitter before retransmits |
+
+Both models share the same protocol:
+- hop-by-hop ARQ
+- penalty routing: each failure makes a neighbour costlier, and any ACK clears it
+- split horizon: a relay never sends a packet straight back where it came from
+- XOR parity
+- NACK and probe recovery
+- the e2e-ack rule
+
+## Seeing what was sent vs what was received
+- **On the page, Network ledger section:**
+  - totals: frames and bytes the hiker sent, unique chunks and bytes the ranger received, duplicates discarded, frames delivered vs lost, a breakdown of loss causes
+  - a **per-link table:** frames sent, received and lost, split by cause (fade, collision, half-duplex, CRC, node down), hop ACKs sent and lost, mean SNR
+  - a **timeline:** one row per chunk, showing every transmission, loss, arrival and parity rebuild
+  - a **per-chunk table:** source sends, total frames, losses, path taken, and hop-by-hop tries such as `H›B:2✓ B›C:4✗ B›E:1✓`
+- **The event log** shows every frame, with its loss cause and RSSI/SNR. Hover a map link to see its link budget.
+- **CLI, one detailed run:**
+  ```powershell
+  .venv\Scripts\python scripts\simulate.py --radio lora --knockout C --trace
+  .venv\Scripts\python scripts\simulate.py --radio lora --preset short_fast --km 0.8
+  .venv\Scripts\python scripts\simulate.py --loss 0.3 --seed 3      # simple model
+  ```
+  Each run prints the link budget, the full frame trace (with `--trace`), sent vs received per link and per chunk, totals and the final result.
+- **Accounting is checked by tests (`tests/test_e_lora_ledger.py`):** on every link, frames sent = delivered + lost. Chunks marked arrived match the destination's receive events exactly.
+
 ## Design notes
 - **Packet:** a 19-byte header (version, msg id, chunk index, total, content type plus parity flag, parts mask, src, dst, hop, retransmission generation, CRC32) and a payload of at most 200 B. That makes 219 B at most, under the **230 B** limit, which `encode()` enforces.
 - **Airtime** = bytes × 8 / rate, per hop: 230 B at 1,000 bps takes 1.84 s.
@@ -66,7 +102,7 @@ copy .env.example .env      # optional: add PRISM / NicrronNinoo keys
 - **Randomness:** all of it comes from a single seeded `random.Random`.
 
 ## Test results
-`pytest`: **55 passed, 2 skipped.** The 2 skipped tests are the live NicrronNinoo and live PRISM checks, which run automatically when credentials are in `.env`.
+`pytest`: **65 passed, 2 skipped.** The 2 skipped tests are the live NicrronNinoo and live PRISM checks, which run automatically when credentials are in `.env`.
 
 | # | Test | Result |
 |---|---|---|
@@ -85,6 +121,7 @@ copy .env.example .env      # optional: add PRISM / NicrronNinoo keys
 | 18 | no PRISM keys → "tracing disabled"; the app still delivers end to end | pass |
 | 19 | FastAPI: POST `/api/sos` → WebSocket stream → `delivered`; media endpoints; knockout reroute via the API | pass |
 | 20 | Playwright UI smoke test | not built (optional) |
+| E | LoRa mode: airtime vs the Semtech formula, preset range ordering, ≥90% delivery with real RF loss causes, delivered ⇔ e2e-ack, knockout reroute, split horizon; ledger balances (sent = received + lost) in both models | pass |
 
 ## Benchmark (`BENCHMARK.md`, 100 seeded trials per row, 4-hop demo mesh)
 | Rate preset | Loss/link | Bytes on air | Useful media bytes | Useful/air | Air bytes per voice-second delivered | Resends | Parity recoveries | NACKs | Delivery rate | Median delivery (s) |
@@ -104,9 +141,11 @@ copy .env.example .env      # optional: add PRISM / NicrronNinoo keys
 - Parity overhead is heaviest on the one-chunk parts (transcript and caption), where the parity chunk is effectively a second copy. Those parts get the most protection on purpose.
 
 ## Known limitations
-- **The radio model is simplified.** There are no collisions or CSMA. ACKs are sent immediately and don't queue behind data. Routing uses global topology knowledge plus each node's own list of suspect neighbours.
+- **The simple model has no collisions.** The realistic LoRa mode has collisions, capture, half-duplex and listen-before-talk.
+- **What LoRa mode still leaves out:** ACKs are sent immediately with no listen-before-talk; there is no duty-cycle limit (US915); terrain is a single path-loss exponent plus a dB slider, not a real elevation map.
+- **Routing knowledge:** routing uses global link-budget knowledge plus each node's own failure history.
 - **The AI runs in the cloud in this demo.** A hiker with no signal can't reach a cloud API, so a real deployment would run captioning and transcription on the device. The demo uses the provider API (or the mock) in its place.
-- **NicrronNinoo adapter not finished:** the request format waits for the API details. The mock provider is used until they are added.
+- **NicrronNinoo adapter not finished:** the API key is in `.env` (gitignored), but the base URL, auth header and request format are still missing. The mock provider is used until they are added.
 - **Codec2 is used directly; no fallback was needed.** `pycodec2` installed fine. The Opus fallback (ffmpeg from `imageio-ffmpeg`) is implemented but was not exercised on this machine.
 - **The sample data is synthetic.** The voice is Windows text-to-speech and the photo was drawn with Pillow (`scripts/make_samples.py`).
 - **Delivery times are simulated seconds.** The UI replays them at an adjustable speed.

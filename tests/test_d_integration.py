@@ -183,3 +183,13 @@ def test_api_knockout_reroutes():
     assert "node_down" in kinds and "rerouted" in kinds
     assert final["status"]["state"] == "delivered"
     assert "E" in final["status"]["route"]
+
+
+def test_api_lora_mode_streams_ledger():
+    states, kinds, final, media = _drive_app({"radio": "lora", "preset": "short_turbo", "km": 0.6, "seed": 2,
+                                              "speed": 6})
+    assert final["status"]["state"] == "delivered"
+    led = final["ledger"]
+    assert led["totals"]["frames_on_air"] == led["totals"]["frames_delivered"] + led["totals"]["frames_lost"]
+    assert led["links"] and led["chunks"]
+    assert "received" in kinds

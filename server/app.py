@@ -19,6 +19,7 @@ from ai.provider import get_provider
 from media import voice
 from mesh.sim import RATE_PRESETS, MeshSim, SimConfig, demo_topology
 from mesh.ledger import NetworkLedger
+from mesh.lora import PRESETS as LORA_PRESETS
 from mesh.status import StatusTracker
 from observability.prism import PrismTracer
 from server.sos import ROOT, RangerView, build_sos
@@ -39,6 +40,26 @@ class SosRequest(BaseModel):
     speed: float = 10.0
     knockout: Optional[str] = None          # node to knock out mid-send
     knockout_after_rx: int = 4              # ...once the ranger has this many chunks
+    radio: str = "simple"                   # "simple" (fixed loss %) | "lora" (RF physics)
+    preset: str = "long_fast"               # Meshtastic modem preset (lora)
+    km: float = 1.8                         # hop length: km per map unit (lora)
+    terrain_db: float = 0.0                 # extra obstruction loss (lora)
+
+
+def _sim_config(req: "SosRequest") -> SimConfig:
+    return SimConfig(rate_bps=RATE_PRESETS.get(req.rate, 1000.0), loss=req.loss, seed=req.seed, radio=req.radio,
+                     lora_preset=req.preset, km_per_unit=req.km, terrain_db=req.terrain_db)
+
+
+def _radio_info(sim: MeshSim) -> dict:
+    if sim.lora:
+        p = sim.preset
+        return {"model": "lora", "preset": p.name, "sf": p.sf, "bw_khz": p.bw_hz / 1e3, "cr": f"4/{4 + p.cr}",
+                "bitrate": round(p.bitrate), "snr_floor_db": p.snr_floor_db,
+                "airtime_ms_219B": round(sim.airtime(219) * 1000), "airtime_ms_ack": round(sim.airtime(20) * 1000),
+                "km_per_unit": sim.cfg.km_per_unit, "terrain_db": sim.cfg.terrain_db}
+    return {"model": "simple", "bitrate": sim.cfg.rate_bps, "loss": sim.cfg.loss,
+            "airtime_ms_219B": round(sim.airtime(219) * 1000)}
 
 
 @dataclass
@@ -114,6 +135,8 @@ async def config():
         "links": sim.links(),
         "range_km": sim.cfg.range_km,
         "rate_presets": RATE_PRESETS,
+        "lora_presets": {k: {"name": p.name, "sf": p.sf, "bw_khz": p.bw_hz / 1e3, "bitrate": round(p.bitrate)}
+                         for k, p in LORA_PRESETS.items()},
         "provider": hub.provider.name,
         "tracing": hub.handshake,
         "codec": "codec2-1200" if voice.HAVE_CODEC2 else "opus-6k (fallback)",
@@ -123,14 +146,16 @@ async def config():
 
 @app.post("/api/sos")
 async def send_sos(req: SosRequest):
+    if req.radio not in ("simple", "lora") or req.preset not in LORA_PRESETS:
+        raise HTTPException(400, "radio must be simple|lora and preset a Meshtastic preset")
     if req.rate not in RATE_PRESETS:
         raise HTTPException(400, f"rate must be one of {list(RATE_PRESETS)}")
     if not 0.0 <= req.loss < 1.0:
         raise HTTPException(400, "loss must be in [0, 1)")
     if hub.task and not hub.task.done():
         hub.task.cancel()
-    cfg = SimConfig(rate_bps=RATE_PRESETS[req.rate], loss=req.loss, seed=req.seed)
-    sim = MeshSim(demo_topology(), cfg)
+    sim = MeshSim(demo_topology(), _sim_config(req))
+    cfg = sim.cfg
     payload = await asyncio.to_thread(build_sos, hub.provider)
     pending: list = []
     sim.listeners.append(pending.append)
@@ -150,10 +175,19 @@ async def send_sos(req: SosRequest):
                          "codec": payload.codec,
                          "sender_ai": {r.kind: {"text": r.text(), "confidence": r.confidence, "labels": r.labels}
                                        for r in payload.ai_results},
-                         "config": {"loss": req.loss, "rate_bps": cfg.rate_bps, "seed": req.seed}})
+                         "config": {"loss": req.loss, "rate_bps": cfg.rate_bps, "seed": req.seed},
+                         "radio": _radio_info(sim), "links": sim.link_info(),
+                         "route": sim.planned_route(SRC, DST)})
     run.pending.clear()
     hub.task = asyncio.create_task(drive(run))
     return {"msg_id": f"{msg_id:08x}", "sizes": run.payload_sizes, "codec": payload.codec}
+
+
+@app.post("/api/links")
+async def links(req: SosRequest):
+    """Link budget for a radio setting, without sending anything (map preview)."""
+    sim = MeshSim(demo_topology(), _sim_config(req))
+    return {"radio": _radio_info(sim), "links": sim.link_info(), "route": sim.planned_route(SRC, DST)}
 
 
 @app.post("/api/node/{name}/{action}")
