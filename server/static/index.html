@@ -86,7 +86,7 @@
   /* mesh phones strip */
   .phones { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
   @media (max-width: 1400px) { .phones { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  .mini { background: #000; border: 2px solid #333; border-radius: 16px; padding: 5px; transition: box-shadow .2s, border-color .2s; }
+  .mini-unused { background: #000; border: 2px solid #333; border-radius: 16px; padding: 5px; transition: box-shadow .2s, border-color .2s; }
   .mini .scr { background: #f5f5f7; color: #111; border-radius: 11px; padding: 6px 7px 7px; min-height: 128px; }
   .mini .nm { font-weight: 800; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
   .mini .role { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: .05em; }
@@ -96,6 +96,43 @@
   .mini .row { display: flex; justify-content: space-between; font-size: 11px; color: #444; font-variant-numeric: tabular-nums; }
   .mini .row b { color: #111; }
   .mini .q { font-size: 10px; color: #92400e; min-height: 13px; }
+  /* multi-device */
+  .scen { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .scen button { background: #0d1117; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .scen button:hover { border-color: var(--info); }
+  .scen button.qc { border-color: var(--ok); color: var(--ok); font-weight: 700; margin-left: auto; }
+  .dev { background: #000; border: 2px solid #333; border-radius: 16px; padding: 5px; transition: box-shadow .2s, border-color .2s; }
+  .dev .scr { background: #f5f5f7; color: #111; border-radius: 11px; padding: 7px 8px 8px; }
+  .dev.down { opacity: .5; } .dev.down .dot { background: #dc2626; }
+  .dev.tx { border-color: #58a6ff; box-shadow: 0 0 12px #58a6ffaa; }
+  .dev.focus { border-color: #d29922; }
+  .dev .nm { font-weight: 800; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .dev .dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; display: inline-block; }
+  .dev .stat { font-size: 10.5px; color: #555; margin: 2px 0 6px; font-variant-numeric: tabular-nums; }
+  .dev .send { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .dev select, .dev input { font: inherit; font-size: 11.5px; padding: 3px 4px; border: 1px solid #ccc; border-radius: 6px; background: #fff; color: #111; min-width: 0; }
+  .dev input { grid-column: 1 / -1; }
+  .dev button { grid-column: 1 / -1; font: inherit; font-size: 12px; font-weight: 700; background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 4px; cursor: pointer; }
+  .dev button:disabled { background: #999; }
+  .dev .box { margin-top: 6px; font-size: 11px; }
+  .dev .box b { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #777; }
+  .dev .it { display: flex; justify-content: space-between; gap: 4px; padding: 2px 4px; border-radius: 5px; cursor: pointer; }
+  .dev .it:hover { background: #e5e7eb; }
+  .dev .it.sel { background: #fef3c7; }
+  .st { font-weight: 700; white-space: nowrap; }
+  .st.delivered { color: #166534; } .st.failed { color: #991b1b; } .st.partial { color: #92400e; } .st.in_transit, .st.queued { color: #1e40af; }
+  .phones { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 1500px) { .phones { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .msgs tr { cursor: pointer; } .msgs tr:hover td { background: #161b22; } .msgs tr.sel td { background: #2d2a12; }
+  .log .other { opacity: .55; }
+  .overlay { position: fixed; inset: 0; background: #000a; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; overflow: auto; }
+  .overlay .box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; max-width: 900px; width: 100%; padding: 18px 20px; }
+  .overlay h2 { margin: 0 0 4px; font-size: 18px; }
+  .qcrow { display: grid; grid-template-columns: 28px 1fr; gap: 4px 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .qcrow .ic { font-size: 20px; line-height: 1; }
+  .qcrow .t { font-weight: 700; } .qcrow .v { color: var(--text); font-weight: 600; }
+  .qcrow .d { color: var(--muted); font-size: 12.5px; }
+  .qcbar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 8px 0; } .qcbar div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
   /* sent vs received */
   .cmp { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #0d1117; }
   .cmp h4 { margin: 0 0 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -131,7 +168,7 @@
 <body>
 <header>
   <h1>🥾 Trail SOS</h1>
-  <span class="sub">Voice + photo SOS over a simulated LoRa mesh · CHRP Off-Grid track</span>
+  <span class="sub">Text, voice, photo &amp; video between 6 phones over a simulated LoRa mesh · CHRP Off-Grid track</span>
   <span class="sub" id="meta"></span>
   <a href="/lab" style="margin-left:auto;color:#58a6ff;font-weight:600;text-decoration:none">Transfer Lab: compare speed &amp; loss →</a>
 </header>
@@ -140,17 +177,24 @@
   <div class="phone"><div class="screen">
     <div class="notch"></div>
     <div class="statusbar"><span>No Service</span><span>LoRa ●</span><span>🔋 41%</span></div>
-    <h2>Hiker</h2>
-    <div class="card">
+    <h2 id="senderName">Hiker</h2>
+    <div class="muted" id="senderSub" style="margin:-6px 0 8px">sender</div>
+    <div class="card" id="sTextCard" style="display:none"><h3>Text message</h3><div id="sText"></div></div>
+    <div class="card" id="sPhotoCard">
       <h3>Photo <span class="muted">(stays on phone)</span></h3>
       <img src="/samples/trail_photo.jpg" class="thumb" alt="sample photo">
     </div>
-    <div class="card">
+    <div class="card" id="sVoiceCard">
       <h3>Voice note <span class="muted">5 s sample</span></h3>
       <audio controls src="/samples/sos_voice.wav" style="width:100%"></audio>
     </div>
+    <div class="card" id="sVideoCard" style="display:none">
+      <h3>Video <span class="muted">5 s clip · stays on phone</span></h3>
+      <video src="/samples/trail_clip.mp4" controls muted loop playsinline style="width:100%;border-radius:8px"></video>
+      <div class="muted" id="sVideoInfo"></div>
+    </div>
     <div class="card" id="hikerAi"><h3>On-device AI</h3><div class="muted">Press Send SOS</div></div>
-    <button class="sos" id="sendBtn">SEND SOS</button>
+    <button class="sos" id="sendBtn" title="Starts a fresh network and sends Hiker -> Ranger">SEND SOS</button>
     <div class="badge idle" id="hikerBadge" style="margin-top:10px">Not sent</div>
   </div></div>
 
@@ -181,6 +225,8 @@
           <button class="danger" id="koNow">Knock out now</button><button id="restore">Restore all</button></span></label>
       </div>
       <div class="radioinfo" id="radioInfo"></div>
+      <div class="scen" id="scenarios"><span class="muted">Test many phones at once:</span>
+        <button class="qc" id="qcBtn" title="Runs the track requirements as live tests">✓ Quick check</button></div>
     </div>
     <div class="panel">
       <h3>Mesh map <span id="simT"></span></h3>
@@ -199,8 +245,12 @@
       </div>
     </div>
     <div class="panel">
-      <h3>Phones in the mesh <span class="muted" id="phonesCount">6 phones · live per-phone traffic for this message</span></h3>
+      <h3>Phones in the mesh <span class="muted" id="phonesCount">any phone can send to any phone · click a message to inspect it</span></h3>
       <div class="phones" id="phones"></div>
+    </div>
+    <div class="panel">
+      <h3>All messages on the network <span class="muted" id="msgsSub">none yet</span></h3>
+      <div class="scroll" style="max-height:260px"><table class="tbl msgs" id="msgTbl"></table></div>
     </div>
     <div class="panel summary">
       <h3>Run summary <span><button class="copybtn" id="copySum">Copy</button></span></h3>
@@ -208,7 +258,7 @@
       <ul id="sumList"></ul>
     </div>
     <div class="panel">
-      <h3>Sent vs received <span class="muted">what the hiker sent · what the ranger got · ranger-side verification</span></h3>
+      <h3>Sent vs received <span class="muted">what the sender sent · what the receiver got · receiver-side verification</span></h3>
       <div id="compare"><div class="muted">Appears as parts arrive.</div></div>
     </div>
     <div class="panel"><h3>Event log <span class="muted">every frame: who → who, what, why it was lost, RSSI/SNR</span></h3><div class="log" id="log"></div></div>
@@ -218,7 +268,8 @@
   <div class="phone"><div class="screen">
     <div class="notch"></div>
     <div class="statusbar"><span>Ranger Stn</span><span>LoRa ●</span><span>🔋 88%</span></div>
-    <h2>Ranger</h2>
+    <h2 id="receiverName">Ranger</h2>
+    <div class="muted" id="receiverSub" style="margin:-6px 0 8px">receiver</div>
     <div class="badge idle" id="badge">Waiting for messages</div>
     <div class="card">
       <div class="kv">
@@ -228,15 +279,20 @@
         <span>Resends</span><span id="rResends">–</span>
       </div>
     </div>
-    <div class="card"><h3>Transcript <span id="tPill"></span></h3><div id="rTranscript" class="muted">not arrived</div></div>
-    <div class="card"><h3>Photo caption <span id="cPill"></span></h3><div id="rCaption" class="muted">not arrived</div></div>
-    <div class="card"><h3>Voice <span id="aCount" class="muted"></span></h3>
+    <div class="card" id="rTextCard"><h3><span id="tTitle">Transcript</span> <span id="tPill"></span></h3><div id="rTranscript" class="muted">not arrived</div></div>
+    <div class="card" id="rCapCard"><h3><span id="cTitle">Photo caption</span> <span id="cPill"></span></h3><div id="rCaption" class="muted">not arrived</div></div>
+    <div class="card" id="rVideoCard" style="display:none"><h3>Video <span id="vCount" class="muted"></span></h3>
+      <div class="bar" id="vBar"><div style="width:0"></div></div><div id="rVideo" class="muted" style="margin-top:6px">not arrived</div></div>
+    <div class="card" id="rVoiceCard"><h3>Voice <span id="aCount" class="muted"></span></h3>
       <div class="bar" id="aBar"><div style="width:0"></div></div><div id="rAudio" class="muted" style="margin-top:6px">not arrived</div></div>
-    <div class="card"><h3>Thumbnail <span id="thCount" class="muted"></span></h3>
+    <div class="card" id="rThumbCard"><h3>Thumbnail <span id="thCount" class="muted"></span></h3>
       <div class="bar" id="thBar"><div style="width:0"></div></div><div id="rThumb" class="muted" style="margin-top:6px">not arrived</div></div>
     <div class="card" id="rebuildCard" style="display:none"><h3>Sketch <span class="pill ai">AI reconstruction</span></h3>
       <img id="rRebuild" class="thumb" alt="AI reconstruction">
       <div class="muted" id="rebuildNote">AI reconstruction, not the real photo.</div></div>
+    <div class="card" id="rebuildAsk" style="display:none"><h3>Sketch from caption</h3>
+      <button class="copybtn" id="rebuildBtn" style="color:#111;background:#fff;border-color:#ccc">Generate AI sketch (~$0.04)</button>
+      <div class="muted" style="margin-top:4px">Automatic for SOS; on request for other photos.</div></div>
   </div></div>
 </main>
 
@@ -245,8 +301,8 @@
   <div class="panel">
     <h3>Network ledger: what was sent vs what was received <span class="muted">frame = one radio transmission on one hop</span></h3>
     <div class="totals">
-      <div class="tcard"><div class="lbl">Hiker sent</div><div class="big" id="tSrc">–</div><div class="sub" id="tSrcSub"></div></div>
-      <div class="tcard"><div class="lbl">Ranger received</div><div class="big" id="tDst">–</div><div class="sub" id="tDstSub"></div></div>
+      <div class="tcard"><div class="lbl" id="tSrcLbl">Sender sent</div><div class="big" id="tSrc">–</div><div class="sub" id="tSrcSub"></div></div>
+      <div class="tcard"><div class="lbl" id="tDstLbl">Receiver received</div><div class="big" id="tDst">–</div><div class="sub" id="tDstSub"></div></div>
       <div class="tcard"><div class="lbl">Frames on air (all hops)</div><div class="big" id="tAir">–</div><div class="sub" id="tAirSub"></div></div>
       <div class="tcard"><div class="lbl">Why frames were lost</div>
         <div class="causes" id="tCauses"></div><div class="sub" id="tCausesSub">–</div></div>
@@ -267,9 +323,16 @@
   </div>
 </section>
 
+<div class="overlay" id="qcOverlay" style="display:none"><div class="box">
+  <h2 style="display:flex;justify-content:space-between">Quick check <button class="copybtn" id="qcClose">Close</button></h2>
+  <div class="muted" id="qcSub">Runs the CHRP track requirements as real tests (repeatable mock AI, real codecs, packets, mesh and status code).</div>
+  <div class="qcbar"><div id="qcBar"></div></div>
+  <div id="qcList"></div>
+</div></div>
 <script>
 const $ = id => document.getElementById(id);
-let lastSummary = null;
+let focusSrc = 'Hiker', focusDst = 'Ranger';
+let lastSummary = null, focusHex = null, focusKind = 'sos', msgNum = {}, sessionLabel = '';
 let cfg = null, nodes = {}, msgId = null, rateBps = 1000, speed = 10, shownMedia = {}, runEvents = [], linkInfo = [];
 const CAUSE_COLORS = {'loss': '#f85149', 'weak signal': '#f0883e', 'collision': '#d29922', 'half-duplex': '#bc8cff',
   'crc_fail': '#ff7b72', 'receiver down': '#6e7681', 'sender down': '#484f58', 'out of range': '#30363d'};
@@ -316,23 +379,36 @@ function previewLinks() {
 }
 
 function showRadio(r, route) {
-  const routeTxt = route && route.length ? route.join(' → ') : 'NO ROUTE (destination unreachable)';
+  const routeTxt = route == null ? '' : route.length ? route.join(' → ') : 'NO ROUTE (destination unreachable)';
+  const rt = routeTxt ? ` · planned route: <b>${routeTxt}</b>` : '';
   if (r.model === 'lora') {
     $('radioInfo').innerHTML = `<b>${r.preset}</b>: SF${r.sf}, ${r.bw_khz} kHz, CR ${r.cr}, <b>${r.bitrate.toLocaleString()} bps</b>, ` +
       `demod floor ${r.snr_floor_db} dB SNR · a full 219 B frame takes <b>${r.airtime_ms_219B} ms</b> on air, a hop ACK ${r.airtime_ms_ack} ms · ` +
-      `hops ${r.km_per_unit} km, terrain +${r.terrain_db} dB · planned route: <b>${routeTxt}</b>`;
+      `hops ${r.km_per_unit} km, terrain +${r.terrain_db} dB${rt}`;
   } else {
     $('radioInfo').innerHTML = `Simple model: <b>${Math.round(r.bitrate).toLocaleString()} bps</b>, ${(r.loss * 100).toFixed(0)}% of frames lost per link ` +
-      `(half corrupted → rejected by CRC) · 219 B frame = <b>${r.airtime_ms_219B} ms</b> · planned route: <b>${routeTxt}</b>`;
+      `(half corrupted → rejected by CRC) · 219 B frame = <b>${r.airtime_ms_219B} ms</b>${rt}`;
   }
 }
 
 async function init() {
   cfg = await (await fetch('/api/config')).json();
   $('meta').textContent = `AI: ${cfg.provider} · voice: ${cfg.codec} · PRISM: ${cfg.tracing}`;
+  const qc = $('qcBtn');
+  for (const [k, sc] of Object.entries(cfg.scenarios)) {
+    const b = document.createElement('button'); b.textContent = `${sc.label} (${sc.messages})`; b.title = sc.about;
+    b.onclick = async () => {
+      b.disabled = true;
+      const r = await fetch('/api/scenario', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...requestBody(), name: k})});
+      if (!r.ok) alert(await r.text());
+      b.disabled = false;
+    };
+    qc.parentNode.insertBefore(b, qc);
+  }
   $('preset').innerHTML = Object.entries(cfg.lora_presets).map(([k, p]) =>
     `<option value="${k}" ${k === 'long_fast' ? 'selected' : ''}>${p.name} · SF${p.sf}/${p.bw_khz} kHz · ${p.bitrate.toLocaleString()} bps</option>`).join('');
   drawMap();
+  buildDevices();
   connect();  // an active run replays its own radio settings; otherwise preview the controls
   setTimeout(() => { if (!msgId) previewLinks(); }, 400);
 }
@@ -462,8 +538,8 @@ function logLine(ev) {
   else if (d.missing) extra = 'missing ' + d.missing.join(',');
   else if (d.path) extra = d.path.join('→');
   if (d.snr_db !== undefined) extra += ` (RSSI ${d.rssi_dbm} dBm, SNR ${d.snr_db} dB${d.interferer ? ', hit by ' + d.interferer : ''})`;
-  const div = document.createElement('div'); div.className = cls;
-  div.textContent = `${ev.t.toFixed(1).padStart(6)}s ${ev.node}${ev.peer ? '→' + ev.peer : ''} ${ev.kind} ${what} ${extra}`;
+  const div = document.createElement('div'); div.className = cls + (ev._focus === false ? ' other' : '');
+  div.textContent = `${ev.t.toFixed(1).padStart(6)}s ${ev._n ? '#' + ev._n + ' ' : ''}${ev.node}${ev.peer ? '→' + ev.peer : ''} ${ev.kind} ${what} ${extra}`;
   const log = $('log'); log.appendChild(div);
   while (log.childNodes.length > 500) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
@@ -475,15 +551,21 @@ function pill(labels) {
 }
 
 function render(m) {
-  const s = m.status, r = m.ranger || {};
   speed = m.speed || speed;
   $('simT').textContent = `sim t = ${m.sim_t.toFixed(1)} s`;
+  if (m.messages) { m.messages.forEach(x => msgNum[x.id] = x.n); renderMessages(m.messages); }
+  if (m.phones) renderDevices(m.phones);
+  if (m.alive) for (const [n, up] of Object.entries(m.alive)) { const g = $('n-' + n); if (g) g.style.opacity = up ? 1 : 0.25; }
+  if (m.queues) for (const [n, q] of Object.entries(m.queues)) { const t = $('q-' + n); if (t) t.textContent = q ? `▤${q}` : ''; }
+  if (!m.status) return;  // network running, nothing focused yet
+  const s = m.status, r = m.ranger || {};
   const b = $('badge');
   b.className = 'badge ' + s.state;
   b.textContent = s.state === 'delivered' ? 'Delivered ✓✓' : s.label;
   const hb = $('hikerBadge');
   hb.className = 'badge ' + s.state;
-  hb.textContent = s.state === 'delivered' ? 'Delivered ✓✓ (ranger confirmed)' : s.state === 'failed' ? 'NOT delivered: ' + s.reason
+  const dstName = (m.msg && m.msg.dst) || 'receiver';
+  hb.textContent = s.state === 'delivered' ? `Delivered ✓✓ (${dstName} confirmed)` : s.state === 'failed' ? 'NOT delivered: ' + s.reason
     : s.state === 'queued' ? 'Queued' : 'Sending… not yet confirmed';
   $('rMsg').textContent = s.msg_id;
   $('rEta').textContent = s.state === 'delivered' ? 'done' : s.eta_s === null ? '—' : `~${s.eta_s.toFixed(0)} s (sim)`;
@@ -497,7 +579,7 @@ function render(m) {
       if (r[part].shortened) $(elId).innerHTML += '<div class="muted">✂ shortened on the hiker phone to fit one packet (nothing lost in transit)</div>';
       $(pl).innerHTML = r[part].labels.length ? pill(r[part].labels) : '<span class="pill ok">received</span>'; }
   }
-  for (const [part, bar, cnt] of [['audio', 'aBar', 'aCount'], ['thumbnail', 'thBar', 'thCount']]) {
+  for (const [part, bar, cnt] of [['audio', 'aBar', 'aCount'], ['thumbnail', 'thBar', 'thCount'], ['video', 'vBar', 'vCount']]) {
     const p = (s.parts || {})[part]; if (!p) continue;
     $(bar).firstElementChild.style.width = (100 * p.have / p.of) + '%';
     $(bar).classList.toggle('done', p.done);
@@ -509,14 +591,16 @@ function render(m) {
   if (r.thumbnail && !shownMedia.thumb) { shownMedia.thumb = 1;
     $('rThumb').className = ''; $('rThumb').innerHTML = `<img class="thumb" src="/api/media/${s.msg_id}/thumbnail.png">
       <div class="muted">Real photo data: ${r.thumbnail.size}, ${r.thumbnail.bytes} B</div>`; }
+  if (r.video && !shownMedia.video) { shownMedia.video = 1;
+    $('rVideo').className = ''; $('rVideo').innerHTML = `<img class="thumb" src="/api/media/${s.msg_id}/video.gif">
+      <div class="muted">${r.video.frames} real keyframes, ${r.video.size}, ${r.video.bytes} B, played at their original timing (${r.video.seconds} s)</div>`; }
+  $('rebuildAsk').style.display = (focusKind === 'photo' && r.caption && !r.rebuild) ? '' : 'none';
   if (r.rebuild) {
     $('rebuildCard').style.display = '';
     $('rebuildNote').textContent = r.rebuild.pending ? 'Generating sketch from the caption…'
       : `AI reconstruction, not the real photo. Generated on the ranger's phone from the caption (${r.rebuild.model || 'AI'}).`;
     if (!r.rebuild.pending && !shownMedia.rebuild) { shownMedia.rebuild = 1; $('rRebuild').src = `/api/media/${s.msg_id}/rebuild.png`; }
   }
-  if (m.alive) for (const [n, up] of Object.entries(m.alive)) { const g = $('n-' + n); if (g) g.style.opacity = up ? 1 : 0.25; }
-  if (m.queues) for (const [n, q] of Object.entries(m.queues)) { const t = $('q-' + n); if (t) t.textContent = q ? `▤${q}` : ''; }
   document.querySelectorAll('#links path').forEach(l => { l.setAttribute('stroke-width', 0.025); l.setAttribute('stroke-opacity', 0.55); });
   if (s.route_is_observed) for (let i = 0; i + 1 < s.route.length; i++) {
     const l = $('l-' + [s.route[i], s.route[i + 1]].sort().join('-'));
@@ -541,7 +625,8 @@ function vpill(verdict) {
   const cls = /^(verified|consistent|identical)/.test(verdict) ? 'good' : /partly/.test(verdict) ? 'mid' : 'bad';
   return `<span class="vpill ${cls}">${esc(verdict)}</span>`;
 }
-const PART_TITLE = {transcript: 'Transcript (text)', caption: 'Photo caption (text)', audio: 'Voice note (audio)', thumbnail: 'Photo (image)'};
+const PART_TITLE = {transcript: 'Transcript (text)', caption: 'Photo caption (text)', audio: 'Voice note (audio)', thumbnail: 'Photo (image)', video: 'Video (keyframes)'};
+const partTitle = p => p === 'transcript' && focusKind === 'text' ? 'Text message' : p === 'caption' && focusKind === 'video' ? 'Video description (text)' : PART_TITLE[p] || p;
 let compareKey = '';
 function renderCompare(rows, r, msg) {
   const key = JSON.stringify([rows.map(x => [x.part, x.status, x.received_crc]), r.verify_transcript, r.verify_caption]);
@@ -556,40 +641,52 @@ function renderCompare(rows, r, msg) {
     if (x.part === 'transcript' || x.part === 'caption') {
       const ops = x.diff ? x.diff.ops : [{op: 'equal', sent: x.sent_text, received: ''}];
       const same = x.diff && allEqual(ops);  // nothing to highlight: show the exact original wording
-      body = `<div class="sv"><div class="col"><div class="lbl">Sent by hiker</div><div class="txt">${same || !x.diff ? esc(x.sent_text) : diffHtml(ops, 'sent')}</div></div>
-        <div class="col"><div class="lbl">Received by ranger</div><div class="txt">${x.received_text == null ? '<span class="muted">not yet</span>' : same ? esc(x.received_text) : diffHtml(ops, 'received')}</div></div></div>`;
+      body = `<div class="sv"><div class="col"><div class="lbl">Sent by ${esc(focusSrc)}</div><div class="txt">${same || !x.diff ? esc(x.sent_text) : diffHtml(ops, 'sent')}</div></div>
+        <div class="col"><div class="lbl">Received by ${esc(focusDst)}</div><div class="txt">${x.received_text == null ? '<span class="muted">not yet</span>' : same ? esc(x.received_text) : diffHtml(ops, 'received')}</div></div></div>`;
       if (x.diff) body += `<div class="metrics"><span>word match <b>${(x.diff.similarity * 100).toFixed(0)}%</b></span><span>words changed <b>${x.diff.substitutions + x.diff.deletions + x.diff.insertions}</b></span><span>network verdict ${vpill(x.status === 'identical' ? 'identical' : x.diff.verdict)}</span></div>`;
       const v = x.part === 'transcript' ? r.verify_transcript : r.verify_caption;
       if (x.part === 'transcript') {
-        body += `<div class="vbox"><b>Verification:</b> the ranger's phone re-transcribed the voice note it actually received and compared it with the transcript above. `;
+        if (focusKind === 'text') { body += `<div class="vbox muted">Typed by a person: no AI involved, so there is nothing to verify beyond the bytes.</div>`; }
+        else {
+        body += `<div class="vbox"><b>Verification:</b> ${esc(focusDst)}'s phone re-transcribed the voice note it actually received and compared it with the transcript above. `;
         if (!v) body += `<span class="vpill wait">waiting for the voice note</span>`;
         else if (v.pending) body += `<span class="vpill wait">transcribing…</span>`;
-        else body += `${vpill(v.verdict)}<div class="sv" style="margin-top:6px"><div class="col"><div class="lbl">Transcript received (from hiker's AI)</div><div class="txt">${allEqual(v.ops) ? esc(v.sent_text) : diffHtml(v.ops, 'sent')}</div></div>
+        else body += `${vpill(v.verdict)}<div class="sv" style="margin-top:6px"><div class="col"><div class="lbl">Transcript received (from ${esc(focusSrc)}'s AI)</div><div class="txt">${allEqual(v.ops) ? esc(v.sent_text) : diffHtml(v.ops, 'sent')}</div></div>
           <div class="col"><div class="lbl">Ranger's own transcription of the received audio</div><div class="txt">${allEqual(v.ops) ? esc(v.ranger_text) : diffHtml(v.ops, 'received')}</div></div></div>
           <div class="metrics"><span>word match <b>${(v.similarity * 100).toFixed(0)}%</b></span><span>word error rate <b>${(v.wer * 100).toFixed(0)}%</b></span>
           <span>changed / missing / extra <b>${v.substitutions} / ${v.deletions} / ${v.insertions}</b></span><span>model <b>${esc(v.model)}</b></span></div>`;
-        body += `</div>`;
+        body += `</div>`; }
       } else {
-        body += `<div class="vbox"><b>Verification:</b> the AI looked at the thumbnail the ranger actually received and judged whether this caption describes it. `;
-        if (!v) body += `<span class="vpill wait">waiting for the photo</span>`;
+        body += `<div class="vbox"><b>Verification:</b> the AI looked at the ${focusKind === 'video' ? 'video frame' : 'thumbnail'} ${esc(focusDst)} actually received and judged whether this ${focusKind === 'video' ? 'description' : 'caption'} matches it. `;
+        if (!v) body += `<span class="vpill wait">waiting for the ${focusKind === 'video' ? 'video' : 'photo'}</span>`;
         else if (v.pending) body += `<span class="vpill wait">checking…</span>`;
         else body += `${vpill(v.verdict)} <div class="metrics"><span>agreement <b>${(v.score * 100).toFixed(0)}%</b></span><span>model <b>${esc(v.model)}</b></span></div><div style="margin-top:4px">“${esc(v.note)}”</div>`;
         body += `</div>`;
       }
     } else if (x.part === 'audio') {
-      body = `<div class="sv"><div class="col"><div class="lbl">Original recording (hiker, ${x.sent_seconds} s)</div><audio controls preload="none" src="${x.original_url}"></audio></div>
-        <div class="col"><div class="lbl">Received by ranger (${esc(x.codec || 'not yet')}, decoded)</div>${x.received_url ? `<audio controls preload="none" src="${media(x.received_url)}"></audio>` : '<span class="muted">not yet</span>'}</div></div>
+      body = `<div class="sv"><div class="col"><div class="lbl">Original recording (${esc(focusSrc)}, ${x.sent_seconds} s)</div><audio controls preload="none" src="${x.original_url}"></audio></div>
+        <div class="col"><div class="lbl">Received by ${esc(focusDst)} (${esc(x.codec || 'not yet')}, decoded)</div>${x.received_url ? `<audio controls preload="none" src="${media(x.received_url)}"></audio>` : '<span class="muted">not yet</span>'}</div></div>
         <div class="metrics"><span>The audio bytes are ${x.status === 'identical' ? '<b>identical</b>' : '<b>' + esc(x.status) + '</b>'}; the only difference you hear is the Codec2 compression, not the network.</span></div>`;
     } else if (x.part === 'thumbnail') {
       const fig = (src, cap) => `<figure>${src ? `<img src="${src}" alt="">` : '<img alt="">'}<figcaption>${cap}</figcaption></figure>`;
-      body = `<div class="imgs">${fig(x.original_url, 'Original photo (stays on hiker phone)')}${fig(media(x.sent_url), 'Sent thumbnail (48×48)')}
-        ${fig(x.received_url ? media(x.received_url) : '', 'Received by ranger')}
+      body = `<div class="imgs">${fig(x.original_url, `Original photo (stays on ${esc(focusSrc)}'s phone)`)}${fig(media(x.sent_url), 'Sent thumbnail (48×48)')}
+        ${fig(x.received_url ? media(x.received_url) : '', `Received by ${esc(focusDst)}`)}
         ${fig(x.diff_url && x.network ? media(x.diff_url) : '', 'Network difference: sent vs received (white = identical)')}
         ${fig(x.compression_diff_url ? media(x.compression_diff_url) : '', 'Compression difference vs original (red = changed)')}</div>`;
       if (x.network) body += `<div class="metrics"><span>pixels identical <b>${x.network.same_pixels_pct}%</b></span><span>largest pixel change <b>${x.network.max_diff}</b></span>
         <span>quality vs original <b>${x.compression.psnr_db ?? '∞'} dB PSNR</b> (above 35 dB looks the same)</span><span>avg change from compression <b>${x.compression.mean_abs_diff}</b> / 255</span></div>`;
     }
-    return `<div class="cmp"><h4><span>${PART_TITLE[x.part]} ${status}</span>${crc}</h4>${body}</div>`;
+    if (x.part === 'video') {
+      const fig = (html, cap) => `<figure>${html}<figcaption>${cap}</figcaption></figure>`;
+      body = `<div class="imgs" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        ${fig(`<video src="${x.original_url}" muted loop autoplay playsinline style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px"></video>`, `Original clip (${x.seconds} s, ${x.frames_total} frames, ${((x.original_bytes || 0) / 1000).toFixed(1)} KB)`)}
+        ${fig(`<img src="${media(x.sent_url)}" alt="">`, `Sent: ${x.frames_sent} keyframes at ${(x.keyframe_times || []).map(t => t + ' s').join(', ')}`)}
+        ${fig(x.received_url ? `<img src="${media(x.received_url)}" alt="">` : '<img alt="">', `Received by ${esc(focusDst)} (flipbook of the real frames)`)}</div>`;
+      if (x.network) body += `<div class="metrics"><span>frames identical <b>${x.network.frames_identical} / ${x.network.frames}</b></span>
+        <span>timing identical <b>${x.network.timing_identical ? 'yes' : 'no'}</b></span>
+        <span>squeezed <b>${((x.original_bytes || 0) / 1000).toFixed(1)} KB → ${x.sent_bytes} B</b> (${Math.round((x.original_bytes || 0) / x.sent_bytes)}× smaller)</span></div>`;
+    }
+    return `<div class="cmp"><h4><span>${partTitle(x.part)} ${status}</span>${crc}</h4>${body}</div>`;
   }).join('');
   $('compare').innerHTML = html;
 }
@@ -599,19 +696,82 @@ function renderSummary(S) {
   $('sumHead').textContent = S.headline;
   $('sumList').innerHTML = S.bullets.map(b => `<li>${esc(b)}</li>`).join('');
   lastSummary = S;
-  const ph = S.phones || [];
-  $('phonesCount').textContent = `${ph.length} phones · live per-phone traffic for this message`;
-  $('phones').innerHTML = ph.map(p => `
-    <div class="mini ${p.alive ? '' : 'down'}" id="mini-${p.name}"><div class="scr">
-      <div class="nm"><span>${p.name === 'Hiker' ? '🥾 ' : p.name === 'Ranger' ? '🏕 ' : '📱 '}${p.name}</span><span class="dot" title="${p.alive ? 'online' : 'knocked out'}"></span></div>
-      <div class="role">${p.role}${p.alive ? '' : ' · OFFLINE'}</div>
-      <div class="row"><span>sent</span><b>${p.tx}</b></div>
-      <div class="row"><span>received</span><b>${p.rx}</b></div>
-      <div class="row"><span>relayed</span><b>${p.relayed}</b></div>
-      <div class="row"><span>dups</span><b>${p.dup}</b></div>
-      <div class="row"><span>dropped</span><b>${p.dropped}</b></div>
-      <div class="q">${p.queue ? `▤ ${p.queue} queued` : ''}</div>
+}
+
+// ------------------------------------------------------------------ devices (any phone -> any phone)
+const ICON = n => n === 'Hiker' ? '🥾' : n === 'Ranger' ? '🏕' : '📱';
+const ST_SHORT = {delivered: '✓✓', failed: '✗ failed', partial: 'partial', in_transit: 'in transit', queued: 'queued'};
+function buildDevices() {
+  const names = cfg.nodes.map(n => n.name);
+  $('phones').innerHTML = names.map(n => `
+    <div class="dev" id="mini-${n}"><div class="scr">
+      <div class="nm"><span>${ICON(n)} ${n}</span><span class="dot"></span></div>
+      <div class="stat" id="dstat-${n}">idle</div>
+      <div class="send">
+        <select id="dto-${n}" title="send to">${names.filter(x => x !== n).map(x => `<option ${x === (n === 'Ranger' ? 'Hiker' : 'Ranger') ? 'selected' : ''}>${x}</option>`).join('')}</select>
+        <select id="dkind-${n}" title="what to send">${Object.entries(cfg.kinds).map(([k, l]) => `<option value="${k}">${l.replace(' (voice + photo)', '')}</option>`).join('')}</select>
+        <input id="dtext-${n}" placeholder="type a message…" maxlength="190">
+        <button id="dsend-${n}">Send from ${n}</button>
+      </div>
+      <div class="box"><b>Inbox</b><div id="din-${n}"><div class="muted">—</div></div></div>
+      <div class="box"><b>Sent</b><div id="dout-${n}"><div class="muted">—</div></div></div>
     </div></div>`).join('');
+  for (const n of names) {
+    const kind = $('dkind-' + n), text = $('dtext-' + n);
+    const sync = () => text.style.display = kind.value === 'text' ? '' : 'none';
+    kind.onchange = sync; sync();
+    $('dsend-' + n).onclick = async () => {
+      const b = $('dsend-' + n); b.disabled = true; b.textContent = 'Squeezing…';
+      try {
+        const body = {...requestBody(), src: n, dst: $('dto-' + n).value, kind: kind.value, text: text.value || null};
+        const r = await fetch('/api/send', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        if (!r.ok) alert(await r.text()); else text.value = '';
+      } finally { b.disabled = false; b.textContent = 'Send from ' + n; }
+    };
+  }
+  $('phones').addEventListener('click', e => { const it = e.target.closest('[data-msg]'); if (it) focusMsg(it.dataset.msg); });
+}
+function itemHtml(x, other) {
+  return `<div class="it ${x.id === focusHex ? 'sel' : ''}" data-msg="${x.id}" title="${esc(x.label)}"><span>#${x.n} ${other} · ${esc(x.kind_label.replace(' (voice + photo)', ''))}</span><span class="st ${x.state}">${ST_SHORT[x.state] || x.state}</span></div>`;
+}
+function renderDevices(phones) {
+  for (const p of phones) {
+    const card = $('mini-' + p.name); if (!card) continue;
+    card.classList.toggle('down', !p.alive);
+    card.classList.toggle('focus', !!focusHex && (p.inbox.concat(p.outbox)).some(x => x.id === focusHex));
+    $('dstat-' + p.name).textContent = `${p.alive ? p.role : 'OFFLINE'} · tx ${p.tx} · rx ${p.rx} · relayed ${p.relayed}` + (p.queue ? ` · ▤${p.queue}` : '');
+    $('din-' + p.name).innerHTML = p.inbox.length ? p.inbox.map(x => itemHtml(x, 'from ' + x.src)).join('') : '<div class="muted">—</div>';
+    $('dout-' + p.name).innerHTML = p.outbox.length ? p.outbox.map(x => itemHtml(x, 'to ' + x.dst)).join('') : '<div class="muted">—</div>';
+  }
+}
+function renderMessages(list) {
+  $('msgsSub').textContent = list.length ? `${list.length} message${list.length > 1 ? 's' : ''}${sessionLabel ? ' · scenario: ' + sessionLabel : ''} · ${list.filter(x => x.state === 'delivered').length} delivered · click a row to inspect it` : 'none yet';
+  const vt = v => v ? `<span class="vpill ${/verified|consistent/.test(v) ? 'good' : /partly/.test(v) ? 'mid' : 'bad'}">${esc(v)}</span>` : '';
+  $('msgTbl').innerHTML = `<tr><th>#</th><th>from → to</th><th>what</th><th>size</th><th>status</th><th>sent at</th><th>time</th><th>route</th><th>checks</th></tr>` +
+    list.map(x => `<tr data-msg="${x.id}" class="${x.id === focusHex ? 'sel' : ''}"><td>${x.n}</td><td>${x.src} → ${x.dst}</td><td>${esc(x.kind_label)}</td>
+      <td class="num">${x.bytes.toLocaleString()} B</td><td><span class="st ${x.state}">${esc(x.state === 'delivered' ? 'delivered ✓✓' : x.label)}</span></td>
+      <td class="num">${x.sent_t.toFixed(1)} s</td><td class="num">${x.state === 'delivered' || x.state === 'failed' ? x.elapsed_s + ' s' : (x.eta_s != null ? '~' + Math.round(x.eta_s) + ' s left' : '–')}</td>
+      <td>${x.route.join('→')}</td><td>${vt(x.verified.verify_transcript)} ${vt(x.verified.verify_caption)}</td></tr>`).join('');
+}
+async function focusMsg(id) { if (id && id !== focusHex) await fetch('/api/focus/' + id, {method: 'POST'}); }
+
+// ------------------------------------------------------------------ quick check
+async function quickCheck() {
+  $('qcOverlay').style.display = 'flex'; $('qcList').innerHTML = ''; $('qcBar').style.width = '0%'; $('qcSub').textContent = 'Running…';
+  const {job} = await (await fetch('/api/quickcheck', {method: 'POST'})).json();
+  while (true) {
+    await new Promise(r => setTimeout(r, 200));
+    const j = await (await fetch('/api/job/' + job)).json();
+    $('qcBar').style.width = (j.progress * 100) + '%';
+    if (j.status === 'error') { $('qcSub').textContent = 'Error: ' + j.error; return; }
+    if (j.status !== 'done') { $('qcSub').textContent = 'Running: ' + j.stage; continue; }
+    const r = j.result;
+    $('qcSub').innerHTML = `<b style="color:${r.passed === r.total ? 'var(--ok)' : 'var(--bad)'}">${r.passed} / ${r.total} passed</b> in ${r.seconds} s · AI: ${esc(r.ai)}`;
+    $('qcList').innerHTML = r.checks.map(c => `<div class="qcrow"><div class="ic">${c.passed ? '✅' : '❌'}</div>
+      <div><div><span class="t">${esc(c.title)}</span> · <span class="v">${esc(c.value)}</span></div>
+      <div class="d">Requirement: ${esc(c.requirement)}</div><div class="d">${esc(c.detail)}</div></div></div>`).join('');
+    return;
+  }
 }
 
 function pulsePhone(name) {
@@ -690,24 +850,26 @@ function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
-    if (m.type === 'start') {
-      msgId = m.msg_id; rateBps = m.config.rate_bps; shownMedia = {}; runEvents = []; speed = m.speed || speed;
-      $('log').innerHTML = '';
+    if (m.type === 'session') {
+      sessionLabel = m.scenario_label || '';
+      if (m.request) syncControls(m.request);
+      if (m.radio) showRadio(m.radio, null);
+      if (m.links) drawLinks(m.links);
+      focusHex = null; msgNum = {}; $('log').innerHTML = ''; runEvents = []; compareKey = '';
+      cfg.nodes.forEach(n => $('n-' + n.name).style.opacity = 1);
+    } else if (m.type === 'start') {
+      msgId = m.msg_id; focusHex = m.msg_id; focusKind = m.kind; rateBps = m.config.rate_bps; shownMedia = {}; runEvents = []; speed = m.speed || speed;
+      compareKey = ''; $('log').innerHTML = '';
       if (m.request) syncControls(m.request);
       if (m.radio) showRadio(m.radio, m.route);
       if (m.links) drawLinks(m.links);
-      $('hikerAi').innerHTML = '<h3>On-device AI</h3>' + Object.entries(m.sender_ai).map(([k, v]) =>
-        `<div style="margin-bottom:6px"><b>${k}</b> ${pill(v.labels)}<br>${esc(v.text)} <span class="muted">(${(v.confidence * 100).toFixed(0)}%${v.model ? ', ' + esc(v.model) : ''})</span>` +
-        (v.shortened ? `<div class="muted">✂ shortened from ${v.original_chars} chars to fit one packet</div>` : '') + `</div>`).join('') +
-        `<div class="muted">Payload: ${Object.entries(m.sizes).map(([k, v]) => `${k} ${v} B`).join(' · ')} (${m.codec})</div>`;
-      for (const id of ['rTranscript', 'rCaption', 'rAudio', 'rThumb']) { $(id).className = 'muted'; $(id).textContent = 'not arrived'; }
-      for (const id of ['tPill', 'cPill', 'aCount', 'thCount']) $(id).innerHTML = '';
-      for (const id of ['aBar', 'thBar']) { $(id).firstElementChild.style.width = 0; $(id).classList.remove('done'); }
-      $('rebuildCard').style.display = 'none'; $('rRebuild').removeAttribute('src');
-      cfg.nodes.forEach(n => $('n-' + n.name).style.opacity = 1);
+      applyKind(m);
     } else if (m.type === 'tick') {
+      if (m.focus) focusHex = m.focus;
       (m.events || []).forEach(ev => {
-        runEvents.push(ev);
+        const hex = ev.msg_id != null ? ev.msg_id.toString(16).padStart(8, '0') : null;
+        ev._focus = !hex || hex === focusHex; ev._n = hex ? msgNum[hex] : null;
+        if (ev._focus) runEvents.push(ev);
         if (['sent', 'retried', 'ack_sent'].includes(ev.kind)) { animatePacket(ev); pulsePhone(ev.node); }
         if (ev.kind === 'lost') flashLost(ev);
         logLine(ev);
@@ -715,13 +877,45 @@ function connect() {
       render(m);
     } else if (m.type === 'done') {
       $('sendBtn').disabled = false;
-      if (m.ledger) renderLedger(m.ledger);
-      if (m.summary) renderSummary(m.summary);
+      if (m.focused && m.ledger) renderLedger(m.ledger);
+      if (m.focused && m.summary) renderSummary(m.summary);
       $('meta').textContent = `AI: ${cfg.provider} · voice: ${cfg.codec} · PRISM: ${m.tracing}` + (m.traces_queued ? ` · ${m.traces_queued} traces sent` : '');
     }
   };
   ws.onclose = () => setTimeout(connect, 1000);
 }
+
+function applyKind(m) {
+  const k = m.kind, show = (id, on) => $(id).style.display = on ? '' : 'none';
+  focusSrc = m.src; focusDst = m.dst;
+  $('tSrcLbl').textContent = `${m.src} sent`; $('tDstLbl').textContent = `${m.dst} received`;
+  $('senderName').textContent = `${ICON(m.src)} ${m.src}`; $('receiverName').textContent = `${ICON(m.dst)} ${m.dst}`;
+  $('senderSub').textContent = `sender · message #${m.n} · ${m.kind_label} to ${m.dst}`;
+  $('receiverSub').textContent = `receiver · message #${m.n} from ${m.src}`;
+  show('sTextCard', k === 'text'); show('sPhotoCard', k === 'photo' || k === 'sos'); show('sVoiceCard', k === 'voice' || k === 'sos');
+  show('sVideoCard', k === 'video');
+  if (m.sender_text) $('sText').textContent = '“' + m.sender_text.text + '”';
+  if (m.video && m.video.frames_sent) $('sVideoInfo').textContent = `${m.video.seconds} s, ${m.video.frames_total} frames, ${(m.video.original_bytes / 1000).toFixed(1)} KB → ${m.video.frames_sent} keyframes, ${m.sizes.video} B`;
+  show('rTextCard', ['text', 'voice', 'sos'].includes(k)); show('rCapCard', ['photo', 'video', 'sos'].includes(k));
+  show('rVoiceCard', k === 'voice' || k === 'sos'); show('rThumbCard', k === 'photo' || k === 'sos'); show('rVideoCard', k === 'video');
+  $('tTitle').textContent = k === 'text' ? 'Text message' : 'Transcript';
+  $('cTitle').textContent = k === 'video' ? 'Video description' : 'Photo caption';
+  $('hikerAi').style.display = Object.keys(m.sender_ai).length ? '' : 'none';
+  $('hikerAi').innerHTML = '<h3>On-device AI</h3>' + Object.entries(m.sender_ai).map(([kk, v]) =>
+    `<div style="margin-bottom:6px"><b>${kk}</b> ${pill(v.labels)}<br>${esc(v.text)} <span class="muted">(${(v.confidence * 100).toFixed(0)}%${v.model ? ', ' + esc(v.model) : ''})</span>` +
+    (v.shortened ? `<div class="muted">✂ shortened from ${v.original_chars} chars to fit one packet</div>` : '') + `</div>`).join('') +
+    `<div class="muted">Payload: ${Object.entries(m.sizes).map(([kk, v]) => `${kk} ${v} B`).join(' · ')}${m.codec ? ' (' + m.codec + ')' : ''}</div>`;
+  for (const id of ['rTranscript', 'rCaption', 'rAudio', 'rThumb', 'rVideo']) { $(id).className = 'muted'; $(id).textContent = 'not arrived'; }
+  for (const id of ['tPill', 'cPill', 'aCount', 'thCount', 'vCount']) $(id).innerHTML = '';
+  for (const id of ['aBar', 'thBar', 'vBar']) { $(id).firstElementChild.style.width = 0; $(id).classList.remove('done'); }
+  $('rebuildCard').style.display = 'none'; $('rRebuild').removeAttribute('src'); $('rebuildAsk').style.display = 'none';
+  $('compare').innerHTML = '<div class="muted">Appears as parts arrive.</div>';
+}
+
+$('qcBtn').onclick = quickCheck;
+$('qcClose').onclick = () => $('qcOverlay').style.display = 'none';
+$('rebuildBtn').onclick = () => { if (focusHex) fetch('/api/rebuild/' + focusHex, {method: 'POST'}); $('rebuildAsk').style.display = 'none'; };
+$('msgTbl').addEventListener('click', e => { const tr = e.target.closest('tr[data-msg]'); if (tr) focusMsg(tr.dataset.msg); });
 
 $('sendBtn').onclick = async () => {
   $('sendBtn').disabled = true;

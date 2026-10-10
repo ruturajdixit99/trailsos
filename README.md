@@ -4,6 +4,48 @@
 
 **Track:** CHRP, Off-Grid Everything (Off-Grid Mesh)
 
+## Test many phones together (home page)
+The network has **6 phones**: Hiker, relays B, C, D and E, and Ranger. **Any phone can send to any other phone**, and many messages can be in flight at once. They share the same radios and compete for airtime, as they would on a real mesh.
+
+- **Phones in the mesh:** each phone has a *Send* row: pick the recipient, then text (type it), voice, photo, video or SOS. It also shows an **inbox** and a **sent** list with honest status (✓✓ only after the receiver's end-to-end ack).
+- **One-click scenarios:**
+  - *Everyone reports to Ranger* (5 messages)
+  - *Ranger broadcasts to all* (5 separate confirmed deliveries)
+  - *Two-way chat* (4)
+  - *Busy mesh* (6 phones talking in different directions at once)
+- **All messages on the network:** a table with from → to, what, size, status, time, route and verification badges. Click any row or inbox item to inspect it. The two big phones become that message's sender and receiver. The summary, ledger, timeline and sent-vs-received panels all follow it.
+- **✓ Quick check:** runs the track requirements as live tests in about 2 s and shows ✓/✗ with the evidence. Terminal version: `python scripts/quickcheck.py`.
+
+| Quick check | Result |
+|---|---|
+| Simulated mesh of 5+ nodes | 6 phones, 7 links, 4-hop route plus an alternate through E |
+| Packets fit in a LoRa frame | largest 219 B (limit 230) |
+| Voice, image and video squeezed | voice 751 B (106× smaller than WAV) · image 380 B · video 1,292 B (33× smaller than MP4) |
+| Arrives whole at 20% loss over 3 hops | 100/100 byte-identical |
+| Never says delivered when it wasn't | 0 false "delivered" in 115 runs |
+| Reroutes around a failed relay | 20/20 delivered via E |
+| 6 phones sending at once | 48/48 messages intact |
+| Realistic LoRa rates and range | airtime matches Semtech; 10/10 delivered on LongFast |
+| Media per byte | 1.3 KB for 5 s of voice + photo + transcript + caption |
+
+## Video
+A 5 s clip (50 frames, 44 KB as H.264) becomes **4 keyframes, 48×48 grayscale, 1,292 B** in a single animated WebP:
+- **Keyframes** are the frames where the picture actually changes, and each keeps its real timing.
+- **An AI description** of the clip is sent alongside, in one packet.
+- **The receiver** plays the real frames back as a flipbook.
+- **Verification:** the description is checked against a received frame, and the frames are compared pixel by pixel.
+
+## Sent vs received + verification
+For the focused message, every part shows what was sent vs what was received:
+- byte count and CRC32 for each part
+- a word diff for text
+- a pixel diff for images and video frames
+- original vs received audio, played side by side
+
+The receiving phone also **verifies** the AI output:
+- it re-transcribes the voice note it actually received and diffs that against the transcript (verified / partly matches / mismatch, with word error rate)
+- it asks the vision model whether the caption or video description matches the picture that arrived
+
 ## Transfer Lab: compare speed and data loss
 Open **http://127.0.0.1:8000/lab** (linked from the demo's header). Pick what to send and set the network, then press **Run**.
 
@@ -154,7 +196,7 @@ Both models share the same protocol:
 - **Randomness:** all of it comes from a single seeded `random.Random`.
 
 ## Test results
-`pytest`: **75 passed, 1 skipped.** The skipped test is the live PRISM handshake, which needs PRISM keys in `.env`. The live NicrronNinoo test runs and passes.
+`pytest`: **83 passed, 1 skipped.** The skipped test is the live PRISM handshake, which needs PRISM keys in `.env`. The live NicrronNinoo test runs and passes.
 
 | # | Test | Result |
 |---|---|---|

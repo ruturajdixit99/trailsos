@@ -40,7 +40,7 @@ def summarize(sim, tracker: StatusTracker, ledger: NetworkLedger, payload_sizes:
     # ---- verdict / headline
     if s["state"] == "delivered":
         verdict = "delivered"
-        headline = (f"DELIVERED ✓✓ in {s['elapsed_s']} s (sim). The ranger's phone confirmed every byte "
+        headline = (f"DELIVERED ✓✓ in {s['elapsed_s']} s (sim). {ledger.dst}'s phone confirmed every byte "
                     f"with an end-to-end ack.")
     elif s["state"] == "failed":
         verdict = "failed"
@@ -56,7 +56,8 @@ def summarize(sim, tracker: StatusTracker, ledger: NetworkLedger, payload_sizes:
                      f"{radio['km_per_unit']} km hops, terrain +{radio['terrain_db']} dB)")
     else:
         radio_txt = f"Simple model ({radio.get('bitrate', 0):,.0f} bps, {radio.get('loss', 0):.0%} loss per link)"
-    bullets.append(f"Network: {len(sim.nodes)} phones (Hiker, {n_relays} relays, Ranger) · {radio_txt}.")
+    bullets.append(f"Network: {len(sim.nodes)} phones ({', '.join(n.name for n in sim.nodes)}) · this message "
+                   f"{ledger.src} → {ledger.dst} · {radio_txt}.")
 
     useful = sum(payload_sizes.values())
     bullets.append("Payload: " + ", ".join(f"{k} {v} B" for k, v in payload_sizes.items())
@@ -84,20 +85,20 @@ def summarize(sim, tracker: StatusTracker, ledger: NetworkLedger, payload_sizes:
     # ---- arrival order
     arrivals = {e.part: e.t for e in ev if e.kind == "reassembled"}
     if arrivals:
-        bullets.append("Arrival at ranger: " + ", ".join(f"{p} {_fmt_t(arrivals[p])}" for p in
+        bullets.append(f"Arrival at {ledger.dst}: " + ", ".join(f"{p} {_fmt_t(arrivals[p])}" for p in
                                                          ("transcript", "caption", "audio", "thumbnail", "video")
                                                          if p in arrivals) + ".")
         if "transcript" in arrivals and s["state"] == "delivered":
-            bullets.append(f"First useful information (transcript) reached the ranger after {arrivals['transcript']:.1f} s, "
+            bullets.append(f"First useful information (transcript) reached {ledger.dst} after {arrivals['transcript']:.1f} s, "
                            f"{s['elapsed_s'] - arrivals['transcript']:.1f} s before the full message was confirmed.")
     missing = [p for p in ("transcript", "caption", "audio", "thumbnail", "video") if p in s["parts"] and p not in arrivals]
     if missing:
-        bullets.append("Not (yet) reassembled at ranger: " + ", ".join(
+        bullets.append(f"Not (yet) reassembled at {ledger.dst}: " + ", ".join(
             f"{p} {s['parts'][p]['have']}/{s['parts'][p]['of']} chunks" for p in missing) + ".")
 
     # ---- traffic
-    bullets.append(f"Sent vs received: hiker transmitted {t['source_frames']} frames ({t['source_bytes']:,} B incl. retries); "
-                   f"ranger received {t['dest_unique_chunks']} unique chunks ({t['dest_bytes']:,} B) and discarded "
+    bullets.append(f"Sent vs received: {ledger.src} transmitted {t['source_frames']} frames ({t['source_bytes']:,} B incl. retries); "
+                   f"{ledger.dst} received {t['dest_unique_chunks']} unique chunks ({t['dest_bytes']:,} B) and discarded "
                    f"{t['dest_duplicates']} duplicates.")
     bullets.append(f"On air across all hops: {t['frames_on_air']} frames, {t['frames_delivered']} delivered, "
                    f"{t['frames_lost']} lost ({t['frame_loss_pct']}%); {t['acks_sent']} hop ACKs ({t['acks_lost']} lost).")
@@ -122,7 +123,7 @@ def summarize(sim, tracker: StatusTracker, ledger: NetworkLedger, payload_sizes:
     ai = []
     for e in ev:
         if e.kind == "e2e_ack_received":
-            ai.append(f"End-to-end ack (CRC32 {e.detail.get('crc32')}) reached the hiker at {e.t:.1f} s.")
+            ai.append(f"End-to-end ack (CRC32 {e.detail.get('crc32')}) reached {ledger.src} at {e.t:.1f} s.")
             break
     bullets += ai
 
