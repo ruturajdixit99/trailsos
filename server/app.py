@@ -25,7 +25,7 @@ from mesh.lora import PRESETS as LORA_PRESETS
 from mesh.status import StatusTracker
 from mesh.summary import summarize
 from observability.prism import PrismTracer
-from server.sos import ROOT, RangerView, build_sos
+from server.sos import ROOT, RangerView, build_sos, sent_vs_received
 
 load_dotenv(ROOT / ".env")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -81,6 +81,8 @@ class Run:
     radio: dict = field(default_factory=dict)
     start_msg: dict = field(default_factory=dict)
     rebuild_task: Optional[asyncio.Task] = None
+    ai_tasks: list = field(default_factory=list)  # ranger-side verification calls
+    payload: object = None
     knocked: bool = False
     rx_count: int = 0
     pending: list = field(default_factory=list)
@@ -258,6 +260,7 @@ async def send_sos(req: SosRequest):
     for ev in pending:
         tracker.on_event(ev)
         run.ledger.on_event(ev)
+    run.payload = payload
     hub.run = run
     run.radio = _radio_info(sim)
     run.start_msg = {"type": "start", "msg_id": f"{msg_id:08x}", "sizes": run.payload_sizes,
@@ -342,6 +345,8 @@ def _tick_msg(run: Run, events: list) -> dict:
             "ranger": run.ranger.view,
             "ledger": run.ledger.snapshot() if run.ledger else None,
             "summary": _summary(run),
+            "compare": sent_vs_received(run.payload, run.sim.rx_parts.get(run.msg_id, {}), run.ranger)
+            if run.payload else None,
             "alive": {n.name: n.alive for n in run.sim.nodes},
             "queues": {n.name: len(n.queue) + (1 if n.busy else 0) for n in run.sim.nodes}}
 
@@ -371,6 +376,16 @@ async def _rebuild(run: Run) -> None:
         log.warning("AI rebuild failed: %s", e)
 
 
+async def _ranger_ai(run: Run, fn) -> None:
+    """Run a ranger-side AI check off the sim loop and trace it."""
+    try:
+        ai = await asyncio.to_thread(fn)
+        if ai is not None:
+            hub.tracer.record_ai_call(run.session, ai)
+    except Exception as e:  # noqa: BLE001 - a failed check must never break the SOS
+        log.warning("ranger AI check failed: %s", e)
+
+
 async def drive(run: Run) -> None:
     """Advance sim time at `speed`x wall clock, stream events + honest status."""
     try:
@@ -388,6 +403,11 @@ async def drive(run: Run) -> None:
                     run.ranger.update(ev.part, data, rebuild=False)
                     if ev.part == "caption":  # slow AI sketch: off the sim loop so the mesh keeps moving
                         run.rebuild_task = asyncio.create_task(_rebuild(run))
+                    # verification as soon as both halves are here: transcript vs audio, caption vs image
+                    if ev.part in ("transcript", "audio") and {"transcript", "audio"} <= run.ranger.raw.keys():
+                        run.ai_tasks.append(asyncio.create_task(_ranger_ai(run, run.ranger.verify_transcript)))
+                    if ev.part in ("caption", "thumbnail") and {"caption", "thumbnail"} <= run.ranger.raw.keys():
+                        run.ai_tasks.append(asyncio.create_task(_ranger_ai(run, run.ranger.verify_caption)))
             if run.knockout and not run.knocked and run.rx_count >= run.knockout_after_rx:
                 run.knocked = True
                 run.sim.set_alive(run.knockout, False)
@@ -399,8 +419,9 @@ async def drive(run: Run) -> None:
             await hub.broadcast(_tick_msg(run, events))
             if run.tracker.state in ("delivered", "failed"):
                 run.finished = True
-                if run.rebuild_task:  # let the sketch land so its trace carries the final network state
-                    await asyncio.wait([run.rebuild_task], timeout=90)
+                waiting = [t for t in [run.rebuild_task, *run.ai_tasks] if t]
+                if waiting:  # let sketch + checks land so their traces carry the final network state
+                    await asyncio.wait(waiting, timeout=90)
                     await hub.broadcast(_tick_msg(run, []))
                 n = hub.tracer.finalize(run.session, _network_metadata(run))
                 await hub.broadcast({"type": "done", "status": run.tracker.snapshot(), "traces_queued": n,

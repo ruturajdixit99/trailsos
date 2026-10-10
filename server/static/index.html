@@ -96,6 +96,29 @@
   .mini .row { display: flex; justify-content: space-between; font-size: 11px; color: #444; font-variant-numeric: tabular-nums; }
   .mini .row b { color: #111; }
   .mini .q { font-size: 10px; color: #92400e; min-height: 13px; }
+  /* sent vs received */
+  .cmp { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #0d1117; }
+  .cmp h4 { margin: 0 0 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cmp .crc { font: 11px ui-monospace, Consolas, monospace; color: var(--muted); font-weight: 400; }
+  .sv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 700px) { .sv { grid-template-columns: 1fr; } }
+  .sv .col { background: #161b22; border-radius: 8px; padding: 8px 10px; }
+  .sv .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .sv .txt { font-size: 13px; line-height: 1.5; }
+  .txt del { background: #4a1d1d; color: #ffb3ad; text-decoration: line-through; border-radius: 3px; padding: 0 2px; }
+  .txt ins { background: #173d23; color: #8be9a8; text-decoration: none; border-radius: 3px; padding: 0 2px; }
+  .vbox { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; font-size: 12.5px; }
+  .vpill { display: inline-block; border-radius: 99px; padding: 1px 9px; font-size: 11px; font-weight: 700; }
+  .vpill.good { background: #12361f; color: #7ee2a0; } .vpill.mid { background: #3d2e0a; color: #f2cc60; } .vpill.bad { background: #3d1414; color: #ff9b95; }
+  .vpill.wait { background: #21262d; color: var(--muted); }
+  .metrics { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .metrics b { color: var(--text); }
+  .imgs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 900px) { .imgs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .imgs figure { margin: 0; }
+  .imgs img { width: 100%; aspect-ratio: 1; object-fit: cover; image-rendering: pixelated; border-radius: 6px; background: #161b22; display: block; }
+  .imgs figcaption { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+  .cmp audio { width: 100%; height: 34px; }
   /* summary */
   .summary .head { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
   .summary .head.delivered { color: var(--ok); } .summary .head.failed { color: var(--bad); } .summary .head.in_progress { color: var(--info); }
@@ -183,6 +206,10 @@
       <h3>Run summary <span><button class="copybtn" id="copySum">Copy</button></span></h3>
       <div class="head" id="sumHead">Press SEND SOS to start a run.</div>
       <ul id="sumList"></ul>
+    </div>
+    <div class="panel">
+      <h3>Sent vs received <span class="muted">what the hiker sent · what the ranger got · ranger-side verification</span></h3>
+      <div id="compare"><div class="muted">Appears as parts arrive.</div></div>
     </div>
     <div class="panel"><h3>Event log <span class="muted">every frame: who → who, what, why it was lost, RSSI/SNR</span></h3><div class="log" id="log"></div></div>
   </div>
@@ -497,6 +524,74 @@ function render(m) {
   }
   if (m.ledger) renderLedger(m.ledger);
   if (m.summary) renderSummary(m.summary);
+  if (m.compare) renderCompare(m.compare, m.ranger || {}, s.msg_id);
+}
+
+// ------------------------------------------------------------------ sent vs received
+const allEqual = ops => ops.every(o => o.op === 'equal');
+function diffHtml(ops, side) {
+  // side 'sent': show deletions/replaced words struck; side 'received': show insertions/replacements highlighted
+  return ops.map(o => {
+    if (o.op === 'equal') return esc(side === 'sent' ? o.sent : o.received);
+    if (side === 'sent') return o.sent ? `<del>${esc(o.sent)}</del>` : '';
+    return o.received ? `<ins>${esc(o.received)}</ins>` : '';
+  }).filter(Boolean).join(' ');
+}
+function vpill(verdict) {
+  const cls = /^(verified|consistent|identical)/.test(verdict) ? 'good' : /partly/.test(verdict) ? 'mid' : 'bad';
+  return `<span class="vpill ${cls}">${esc(verdict)}</span>`;
+}
+const PART_TITLE = {transcript: 'Transcript (text)', caption: 'Photo caption (text)', audio: 'Voice note (audio)', thumbnail: 'Photo (image)'};
+let compareKey = '';
+function renderCompare(rows, r, msg) {
+  const key = JSON.stringify([rows.map(x => [x.part, x.status, x.received_crc]), r.verify_transcript, r.verify_caption]);
+  if (key === compareKey) return;  // only re-render when something changed (keeps audio players playing)
+  compareKey = key;
+  const media = name => `/api/media/${msg}/${name}`;
+  const html = rows.map(x => {
+    const status = x.status === 'identical' ? `<span class="vpill good">identical ✓</span>`
+      : x.status === 'DIFFERENT' ? `<span class="vpill bad">DIFFERENT ✗</span>` : `<span class="vpill wait">${esc(x.status)}</span>`;
+    const crc = `<span class="crc">sent ${x.sent_bytes} B · CRC ${x.sent_crc} → received ${x.received_bytes ?? '–'} B · CRC ${x.received_crc ?? '–'}</span>`;
+    let body = '';
+    if (x.part === 'transcript' || x.part === 'caption') {
+      const ops = x.diff ? x.diff.ops : [{op: 'equal', sent: x.sent_text, received: ''}];
+      const same = x.diff && allEqual(ops);  // nothing to highlight: show the exact original wording
+      body = `<div class="sv"><div class="col"><div class="lbl">Sent by hiker</div><div class="txt">${same || !x.diff ? esc(x.sent_text) : diffHtml(ops, 'sent')}</div></div>
+        <div class="col"><div class="lbl">Received by ranger</div><div class="txt">${x.received_text == null ? '<span class="muted">not yet</span>' : same ? esc(x.received_text) : diffHtml(ops, 'received')}</div></div></div>`;
+      if (x.diff) body += `<div class="metrics"><span>word match <b>${(x.diff.similarity * 100).toFixed(0)}%</b></span><span>words changed <b>${x.diff.substitutions + x.diff.deletions + x.diff.insertions}</b></span><span>network verdict ${vpill(x.status === 'identical' ? 'identical' : x.diff.verdict)}</span></div>`;
+      const v = x.part === 'transcript' ? r.verify_transcript : r.verify_caption;
+      if (x.part === 'transcript') {
+        body += `<div class="vbox"><b>Verification:</b> the ranger's phone re-transcribed the voice note it actually received and compared it with the transcript above. `;
+        if (!v) body += `<span class="vpill wait">waiting for the voice note</span>`;
+        else if (v.pending) body += `<span class="vpill wait">transcribing…</span>`;
+        else body += `${vpill(v.verdict)}<div class="sv" style="margin-top:6px"><div class="col"><div class="lbl">Transcript received (from hiker's AI)</div><div class="txt">${allEqual(v.ops) ? esc(v.sent_text) : diffHtml(v.ops, 'sent')}</div></div>
+          <div class="col"><div class="lbl">Ranger's own transcription of the received audio</div><div class="txt">${allEqual(v.ops) ? esc(v.ranger_text) : diffHtml(v.ops, 'received')}</div></div></div>
+          <div class="metrics"><span>word match <b>${(v.similarity * 100).toFixed(0)}%</b></span><span>word error rate <b>${(v.wer * 100).toFixed(0)}%</b></span>
+          <span>changed / missing / extra <b>${v.substitutions} / ${v.deletions} / ${v.insertions}</b></span><span>model <b>${esc(v.model)}</b></span></div>`;
+        body += `</div>`;
+      } else {
+        body += `<div class="vbox"><b>Verification:</b> the AI looked at the thumbnail the ranger actually received and judged whether this caption describes it. `;
+        if (!v) body += `<span class="vpill wait">waiting for the photo</span>`;
+        else if (v.pending) body += `<span class="vpill wait">checking…</span>`;
+        else body += `${vpill(v.verdict)} <div class="metrics"><span>agreement <b>${(v.score * 100).toFixed(0)}%</b></span><span>model <b>${esc(v.model)}</b></span></div><div style="margin-top:4px">“${esc(v.note)}”</div>`;
+        body += `</div>`;
+      }
+    } else if (x.part === 'audio') {
+      body = `<div class="sv"><div class="col"><div class="lbl">Original recording (hiker, ${x.sent_seconds} s)</div><audio controls preload="none" src="${x.original_url}"></audio></div>
+        <div class="col"><div class="lbl">Received by ranger (${esc(x.codec || 'not yet')}, decoded)</div>${x.received_url ? `<audio controls preload="none" src="${media(x.received_url)}"></audio>` : '<span class="muted">not yet</span>'}</div></div>
+        <div class="metrics"><span>The audio bytes are ${x.status === 'identical' ? '<b>identical</b>' : '<b>' + esc(x.status) + '</b>'}; the only difference you hear is the Codec2 compression, not the network.</span></div>`;
+    } else if (x.part === 'thumbnail') {
+      const fig = (src, cap) => `<figure>${src ? `<img src="${src}" alt="">` : '<img alt="">'}<figcaption>${cap}</figcaption></figure>`;
+      body = `<div class="imgs">${fig(x.original_url, 'Original photo (stays on hiker phone)')}${fig(media(x.sent_url), 'Sent thumbnail (48×48)')}
+        ${fig(x.received_url ? media(x.received_url) : '', 'Received by ranger')}
+        ${fig(x.diff_url && x.network ? media(x.diff_url) : '', 'Network difference: sent vs received (white = identical)')}
+        ${fig(x.compression_diff_url ? media(x.compression_diff_url) : '', 'Compression difference vs original (red = changed)')}</div>`;
+      if (x.network) body += `<div class="metrics"><span>pixels identical <b>${x.network.same_pixels_pct}%</b></span><span>largest pixel change <b>${x.network.max_diff}</b></span>
+        <span>quality vs original <b>${x.compression.psnr_db ?? '∞'} dB PSNR</b> (above 35 dB looks the same)</span><span>avg change from compression <b>${x.compression.mean_abs_diff}</b> / 255</span></div>`;
+    }
+    return `<div class="cmp"><h4><span>${PART_TITLE[x.part]} ${status}</span>${crc}</h4>${body}</div>`;
+  }).join('');
+  $('compare').innerHTML = html;
 }
 
 function renderSummary(S) {

@@ -83,6 +83,10 @@ class AIProvider:
         """Returns PNG bytes of a sketch generated from the caption."""
         raise NotImplementedError
 
+    def check_caption(self, image: Image.Image, caption: str) -> tuple[float, str]:
+        """Ranger-side check: how well does `caption` describe the image that actually arrived? (0-1, note)"""
+        raise NotImplementedError
+
     # Timed wrappers that build labeled AIResults (used by the app + tracing)
     def run_caption(self, image: Image.Image) -> AIResult:
         t0 = time.perf_counter()
@@ -102,6 +106,13 @@ class AIProvider:
         # a rebuild can be no more trustworthy than the caption it came from
         return AIResult("rebuild", png, caption_confidence, self.model_for("rebuild_image"), _ms(t0), caption,
                         apply_labels("rebuild", caption_confidence))
+
+    def run_check_caption(self, image: Image.Image, caption: str) -> AIResult:
+        t0 = time.perf_counter()
+        score, note = self.check_caption(image, caption)
+        return AIResult("caption_check", note, score, self.model_for("check_caption"), _ms(t0),
+                        f"received thumbnail {image.width}x{image.height} + caption: {caption}",
+                        apply_labels("caption_check", score))
 
 
 def _ms(t0: float) -> int:
@@ -126,6 +137,9 @@ class MockProvider(AIProvider):
 
     def rebuild_image(self, caption):
         return sketch_from_caption(caption)
+
+    def check_caption(self, image, caption):
+        return 0.9, "Caption is consistent with the received thumbnail (mock check)."
 
 
 def sketch_from_caption(caption: str) -> bytes:
@@ -177,7 +191,7 @@ class NicrronNinooProvider(AIProvider):
                                     headers={"Authorization": f"Bearer {self.api_key}"})
 
     def model_for(self, method: str) -> str:
-        return {"caption_image": self.model, "transcribe": self.stt_model,
+        return {"caption_image": self.model, "transcribe": self.stt_model, "check_caption": self.model,
                 "rebuild_image": self.image_model}.get(method, self.model)
 
     def _ok(self, r: httpx.Response) -> httpx.Response:
@@ -228,6 +242,26 @@ class NicrronNinooProvider(AIProvider):
         else:
             conf = 0.5
         return d.get("text", "").strip(), max(0.0, min(conf, 1.0))
+
+    def check_caption(self, image, caption):
+        im = image.convert("RGB").resize((192, 192))  # tiny 48x48 thumbnail, upscaled so the model can see it
+        buf = io.BytesIO()
+        im.save(buf, "PNG")
+        url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+        prompt = ("This is the 48x48 grayscale thumbnail a search-and-rescue ranger received over a radio link, "
+                  f"and the caption sent with it:\n\"{caption}\"\nHow consistent is the caption with what is "
+                  "visible in the thumbnail? Ignore colours (the thumbnail is grayscale) and fine detail it is too "
+                  "small to show. Reply ONLY as JSON: {\"score\": number 0-1, \"note\": string under 120 characters}")
+        r = self._ok(self._client.post("/chat/completions", json={
+            "model": self.model, "max_tokens": 160, "temperature": 0,
+            "messages": [{"role": "user", "content": [{"type": "text", "text": prompt},
+                                                      {"type": "image_url", "image_url": {"url": url}}]}]}))
+        content = r.json()["choices"][0]["message"]["content"]
+        m = re.search(r"\{.*\}", content, re.S)
+        if not m:
+            raise RuntimeError(f"caption check reply was not JSON: {content[:120]}")
+        d = json.loads(m.group(0))
+        return max(0.0, min(float(d.get("score", 0.5)), 1.0)), str(d.get("note", ""))[:160]
 
     def rebuild_image(self, caption):
         if not self.rebuild_enabled:
@@ -292,6 +326,9 @@ class FallbackProvider(AIProvider):
 
     def rebuild_image(self, caption):
         return self._try("rebuild_image", caption)
+
+    def check_caption(self, image, caption):
+        return self._try("check_caption", image, caption)
 
 
 def get_provider() -> AIProvider:
